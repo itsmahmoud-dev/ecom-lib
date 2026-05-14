@@ -13,9 +13,11 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
-    "noEmit": true,
+    "noEmit": false,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "emitDeclarationOnly": true,
+    "declaration": true,
 
     // Best practices
     "strict": true,

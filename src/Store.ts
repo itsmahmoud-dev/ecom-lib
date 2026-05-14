@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { DataSource, Repository } from "typeorm";
+import { DataSource, type Repository } from "typeorm";
 import { ClothingProduct } from "./db/clothing/clothingProduct";
 import { Product } from "./db/product";
 import { ClothingProductOption } from "./db/clothing/clothingProductOption";
