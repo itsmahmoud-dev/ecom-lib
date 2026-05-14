@@ -22,6 +22,7 @@ export class Store {
   name: string;
   dataSource: DataSource;
   dataPath: string;
+  products: Repository<Product>;
 
   constructor(props: storeProps) {
     this.name = props.name;
@@ -37,6 +38,7 @@ export class Store {
       synchronize: true,
       logging: false,
     });
+    this.products = this.dataSource.getRepository(Product);
 
     try {
       this.dataSource.initialize();
