@@ -1,5 +1,5 @@
-import type { ClothingProduct } from "../src/db/clothing/clothingProduct";
-import type { ClothingProductOption } from "../src/db/clothing/clothingProductOption";
+import type { ClothingProduct } from "../db/clothing/clothingProduct";
+import type { ClothingProductOption } from "../db/clothing/clothingProductOption";
 
 export enum ProductType {
   CLOTHING = "clothing",
