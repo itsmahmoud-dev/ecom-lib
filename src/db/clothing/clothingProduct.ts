@@ -1,6 +1,6 @@
 import { ChildEntity, Column, OneToMany } from "typeorm";
 import { Product } from "../Product";
-import { ProductGender } from "../../../types/product";
+import { ProductGender } from "../../types/product";
 import type { ClothingProductOption } from "./clothingProductOption";
 
 @ChildEntity()

@@ -7,7 +7,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from "typeorm";
-import { ProductStatus } from "../../types/product";
+import { ProductStatus } from "../types/product";
 
 @Entity({ name: "product" })
 @TableInheritance({ column: { type: "text", name: "type" } })

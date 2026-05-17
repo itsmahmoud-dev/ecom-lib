@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import type { createProductOptions, ProductImage } from "../types";
+import type { createProductOptions, ProductImage } from "./types";
 import type { Store } from "./Store";
 import { ClothingProduct, Product } from "./db";
 import type { Repository } from "typeorm";
