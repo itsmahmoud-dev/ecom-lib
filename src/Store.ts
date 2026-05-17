@@ -3,6 +3,7 @@ import { DataSource } from "typeorm";
 import { Product, ClothingProduct, ClothingProductOption } from "./db";
 
 import { Products } from "./Products";
+import { Users } from "./Users";
 
 type storeProps = {
   name: string;
@@ -21,6 +22,7 @@ export class Store {
   dataSource: DataSource;
   dataPath: string;
   products: Products;
+  users: Users;
 
   constructor(props: storeProps) {
     this.name = props.name;
@@ -32,12 +34,13 @@ export class Store {
       username: props.db.USER,
       password: props.db.PASS,
       database: props.db.NAME,
-      entities: [Product, ClothingProduct, ClothingProductOption],
+      entities: [Product, ClothingProduct, ClothingProductOption, Users],
       synchronize: true,
       logging: false,
     });
 
     this.products = new Products(this);
+    this.users = new Users(this);
 
     try {
       this.dataSource.initialize();
