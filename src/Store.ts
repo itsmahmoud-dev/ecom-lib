@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
-import { Product, ClothingProduct, ClothingProductOption } from "./db";
+import { Product, ClothingProduct, ClothingProductOption, User } from "./db";
 
 import { Products } from "./Products";
 import { Users } from "./Users";
@@ -34,7 +34,7 @@ export class Store {
       username: props.db.USER,
       password: props.db.PASS,
       database: props.db.NAME,
-      entities: [Product, ClothingProduct, ClothingProductOption, Users],
+      entities: [Product, ClothingProduct, ClothingProductOption, User],
       synchronize: true,
       logging: false,
     });
