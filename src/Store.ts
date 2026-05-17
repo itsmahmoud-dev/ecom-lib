@@ -1,10 +1,8 @@
 import "reflect-metadata";
-import { DataSource, type Repository } from "typeorm";
-import { ClothingProduct } from "./db/clothing/clothingProduct";
-import { Product } from "./db/product";
-import { ClothingProductOption } from "./db/clothing/clothingProductOption";
-import type { createProductOptions, ProductImage } from "../types/product";
-import sharp from "sharp";
+import { DataSource } from "typeorm";
+import { Product, ClothingProduct, ClothingProductOption } from "./db";
+
+import { Products } from "./Products";
 
 type storeProps = {
   name: string;
@@ -22,7 +20,7 @@ export class Store {
   name: string;
   dataSource: DataSource;
   dataPath: string;
-  products: Repository<Product>;
+  products: Products;
 
   constructor(props: storeProps) {
     this.name = props.name;
@@ -38,43 +36,13 @@ export class Store {
       synchronize: true,
       logging: false,
     });
-    this.products = this.dataSource.getRepository(Product);
+
+    this.products = new Products(this);
 
     try {
       this.dataSource.initialize();
     } catch (e) {
       console.log(e);
     }
-  }
-
-  async createProduct(p: createProductOptions, imgs: ProductImage[]) {
-    const imageLinks: { color: string; filename: string }[] = [];
-    imgs.forEach(async (img) => {
-      const filename = `${p.name}-${img.color}-${Date.now()}`;
-      await sharp(await img.image.arrayBuffer())
-        .resize(500, 500, { fit: "fill" })
-        .webp()
-        .toFormat("webp")
-        .toFile(`${this.dataPath}/images/products/${filename}.webp`);
-      imageLinks.push({ color: img.color, filename });
-    });
-
-    const product = await ClothingProduct.create({
-      name: p.name,
-      barcode: p.barcode,
-      active: p.active,
-      description: p.description,
-      category: p.category,
-      tags: p.tags,
-      gender: p.gender,
-      options: p.options.map((o) => ({
-        ...o,
-        images: imageLinks
-          .filter((img) => img.color === o.color)
-          .map((img) => img.filename),
-      })),
-    }).save();
-
-    return product;
   }
 }
