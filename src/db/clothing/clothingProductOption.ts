@@ -1,6 +1,13 @@
-import { BaseEntity, Column, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import {
+  BaseEntity,
+  Column,
+  Entity,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from "typeorm";
 import type { ClothingProduct } from "./clothingProduct";
 
+@Entity({ name: "clothing_product_option" })
 export class ClothingProductOption extends BaseEntity {
   @PrimaryGeneratedColumn()
   id!: number;
