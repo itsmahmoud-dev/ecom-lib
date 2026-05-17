@@ -9,7 +9,7 @@ import {
 } from "typeorm";
 import { ProductStatus } from "../../types/product";
 
-@Entity()
+@Entity({ name: "product" })
 @TableInheritance({ column: { type: "text", name: "type" } })
 export class Product extends BaseEntity {
   @PrimaryGeneratedColumn()
