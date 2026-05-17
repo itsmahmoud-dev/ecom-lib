@@ -28,7 +28,7 @@ export class Users {
           email: props.email,
           password: await User.hashPassword(props.password),
           activationToken: token,
-          activationTokenExpiry: Date.now() + 10 * 60 * 1000,
+          activationTokenExpiry: new Date(Date.now() + 10 * 60 * 1000),
         })
         .save();
 
