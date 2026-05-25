@@ -17,10 +17,10 @@ export class User extends BaseEntity {
   name!: string;
 
   @Column({ type: "text", unique: true, nullable: true })
-  email?: string;
+  email?: string | null;
 
   @Column({ type: "text", unique: true, nullable: true })
-  phoneNumber?: string;
+  phoneNumber?: string | null;
 
   @Column({ type: "text" })
   password!: string;
@@ -32,16 +32,16 @@ export class User extends BaseEntity {
   status!: UserStatus;
 
   @Column({ type: "text", nullable: true })
-  activationToken?: string;
+  activationToken?: string | null;
 
   @Column({ type: "timestamptz", nullable: true })
-  activationTokenExpiry?: Date;
+  activationTokenExpiry?: Date | null;
 
   @Column({ type: "text", nullable: true })
-  passwordResetToken?: string;
+  passwordResetToken?: string | null;
 
   @Column({ type: "timestamptz", nullable: true })
-  passwordResetTokenExpiry?: Date;
+  passwordResetTokenExpiry?: Date | null;
 
   @CreateDateColumn()
   createdAt!: Date;
