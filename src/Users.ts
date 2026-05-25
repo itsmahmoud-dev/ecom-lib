@@ -1,11 +1,13 @@
-import type { Repository } from "typeorm";
+import { MoreThan, type Repository } from "typeorm";
 import type { Store } from "./Store";
 import { User } from "./db/User";
-import type {
-  CreateUserWithEmailProps,
-  CreateUserWithPhoneNumberProps,
-} from "./types/user";
 import crypto from "crypto";
+import { OperError } from "./lib/OperError";
+import {
+  UserStatus,
+  type CreateUserWithEmailProps,
+  type CreateUserWithPhoneNumberProps,
+} from "./types";
 
 export class Users {
   store: Store;
@@ -38,7 +40,30 @@ export class Users {
     }
   }
 
-  activateUser() {}
+  async activateUser(token: string) {
+    const user = await this.repository.findOne({
+      where: {
+        activationToken: token,
+        activationTokenExpiry: MoreThan(new Date()),
+      },
+    });
+
+    if (!user) {
+      throw new OperError({
+        code: "U600",
+        message: "Invalid or expired token",
+        cause:
+          "Token has expired (passed the 10 minutes mark) or does not exist in the database.",
+      });
+    }
+
+    user.status = UserStatus.ACTIVE;
+    user.activationToken = null;
+    user.activationTokenExpiry = null;
+    await user.save();
+
+    return true;
+  }
 
   logUserIn() {}
 }
