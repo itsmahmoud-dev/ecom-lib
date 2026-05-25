@@ -21,7 +21,7 @@ export type ProductImage = {
   image: File;
 };
 
-export type createProductOptions = Pick<
+export type CreateProductOptions = Pick<
   ClothingProduct,
   "name" | "barcode" | "active" | "description" | "category" | "tags" | "gender"
 > & {

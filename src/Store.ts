@@ -5,7 +5,7 @@ import { Product, ClothingProduct, ClothingProductOption, User } from "./db";
 import { Products } from "./Products";
 import { Users } from "./Users";
 
-type storeProps = {
+type StoreProps = {
   name: string;
   dataPath: string;
   db: {
@@ -24,7 +24,7 @@ export class Store {
   products: Products;
   users: Users;
 
-  constructor(props: storeProps) {
+  constructor(props: StoreProps) {
     this.name = props.name;
     this.dataPath = props.dataPath;
     this.dataSource = new DataSource({
