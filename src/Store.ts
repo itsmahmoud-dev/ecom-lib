@@ -41,9 +41,11 @@ export class Store {
 
     this.products = new Products(this);
     this.users = new Users(this);
+  }
 
+  async initializeDatabase() {
     try {
-      this.dataSource.initialize();
+      await this.dataSource.initialize();
     } catch (e) {
       console.log(e);
     }
