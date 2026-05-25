@@ -11,3 +11,5 @@ export const store = new Store({
     HOST: "localhost",
   },
 });
+
+await store.initializeDatabase();
