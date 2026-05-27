@@ -1,23 +1,30 @@
 import { expect, test } from "bun:test";
-import { User } from "../src/db";
 import { store } from ".";
+import { faker } from "@faker-js/faker";
 
-test("Register New User With Email", async () => {
-  const user = await store.users.registerUser({
-    type: "email",
-    email: "itsmahmoud.dev@gmail.com",
-    name: "Mahmoud Boukhary",
-    password: "123456789",
-  });
+const testEmail = faker.internet.email();
+const testPassword = faker.internet.password();
+const testFullName = faker.person.fullName();
 
-  expect(user).toBeInstanceOf(User);
-  expect(user).toHaveProperty("email");
+test("Regsiter New User with Email", async () => {
+  const user = expect(
+    store.users.registerUserWithEmail(testFullName, testEmail, testPassword),
+  );
+
+  user.resolves.toBeTrue();
 });
 
-test("Activate User", async () => {
-  const user = await store.users.repository.findOne({
-    where: { email: "itsmahmoud.dev@gmail.com" },
+test("Register a Duplicate Email", async () => {
+  const user = expect(
+    store.users.registerUserWithEmail(testFullName, testEmail, testPassword),
+  );
+  user.rejects.toThrow();
+  user.rejects.toMatchObject({
+    code: "603",
+    message: expect.any(String),
+    cause: expect.any(String),
   });
+});
 
   if (!user) {
     console.log("no user");

@@ -1,13 +1,12 @@
-import { MoreThan, type Repository } from "typeorm";
-import type { Store } from "./Store";
-import { User } from "./db/User";
+import { MoreThan, QueryFailedError, type Repository } from "typeorm";
 import crypto from "crypto";
+import { sign } from "jsonwebtoken";
+
+import { User } from "./db/User";
 import { OperError } from "./lib/OperError";
-import {
-  UserStatus,
-  type CreateUserWithEmailProps,
-  type CreateUserWithPhoneNumberProps,
-} from "./types";
+
+import { UserStatus } from "./types";
+import type { Store } from "./Store";
 
 export class Users {
   store: Store;
@@ -18,26 +17,38 @@ export class Users {
     this.repository = this.store.dataSource.getRepository(User);
   }
 
-  async registerUser(
-    props: CreateUserWithEmailProps | CreateUserWithPhoneNumberProps,
-  ) {
+  /**
+   * @param name string
+   * @param email string
+   * @param password string
+   * @returns true if the registering was successful
+   */
+  async registerUserWithEmail(name: string, email: string, password: string) {
     const token = crypto.randomBytes(32).toString("hex");
 
-    if (props.type === "email") {
-      const user = await this.repository
-        .create({
-          name: props.name,
-          email: props.email,
-          password: await User.hashPassword(props.password),
-          activationToken: token,
-          activationTokenExpiry: new Date(Date.now() + 10 * 60 * 1000),
-        })
-        .save();
+    const user = this.repository.create({
+      name: name,
+      email: email,
+      password: await User.hashPassword(password),
+      activationToken: token,
+      activationTokenExpiry: new Date(Date.now() + 10 * 60 * 1000),
+    });
 
-      //TODO: SEND EMAIL TO USER FOR ACTIVATION
-
-      return user;
+    try {
+      await user.save();
+    } catch (err) {
+      if (err instanceof QueryFailedError && err.driverError.code === "23505")
+        throw new OperError({
+          code: "U603",
+          message: "Email is already registered",
+          cause:
+            "User is trying to create a new account with an email registered for another account",
+        });
     }
+
+    //TODO: SEND EMAIL TO USER FOR ACTIVATION
+
+    return true;
   }
 
   async activateUser(token: string) {
