@@ -20,7 +20,7 @@ test("Register a duplicate email", () => {
   );
   user.rejects.toThrow();
   user.rejects.toMatchObject({
-    code: "603",
+    code: "U603",
     message: expect.any(String),
     cause: expect.any(String),
   });
