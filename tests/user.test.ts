@@ -32,8 +32,8 @@ test("Activate user", async () => {
   const user = await store.users.repository.findOneBy({ email: testEmail });
 
   expect(user).not.toBeNull();
-  expect(user?.activationToken).not.toBeNull();
-  expect(user?.activationToken).not.toBeUndefined();
+  expect(user!.activationToken).not.toBeNull();
+  expect(user!.activationToken).not.toBeUndefined();
 
   const result = expect(store.users.activateUser(user!.activationToken!));
 
@@ -52,8 +52,8 @@ test("Activate user with an expired token", async () => {
     .save();
 
   expect(user).not.toBeNull();
-  expect(user?.activationToken).not.toBeNull();
-  expect(user?.activationToken).not.toBeUndefined();
+  expect(user!.activationToken).not.toBeNull();
+  expect(user!.activationToken).not.toBeUndefined();
 
   const result = expect(store.users.activateUser(user!.activationToken!));
 
@@ -107,17 +107,18 @@ test("Log user in with a wrong password", async () => {
 });
 
 test("Log in a pending user", async () => {
+  const testPassword2 = faker.internet.password();
   const user = await store.users.repository
     .create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
-      password: faker.internet.password(),
+      password: testPassword2,
     })
     .save();
 
   expect(user).not.toBeNull();
 
-  const result = expect(store.users.logUserIn(user.email!, user.password));
+  const result = expect(store.users.logUserIn(user.email!, testPassword2));
 
   result.rejects.toThrow(OperError);
   result.rejects.toMatchObject({
