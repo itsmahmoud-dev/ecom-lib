@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
+import { UserRole } from "../src/types";
+import { OperError } from "../src/lib/OperError";
 
 const testEmail = faker.internet.email();
 const testPassword = faker.internet.password();
@@ -18,7 +20,7 @@ test("Register a duplicate email", () => {
   const user = expect(
     store.users.registerUserWithEmail(testFullName, testEmail, testPassword),
   );
-  user.rejects.toThrow();
+  user.rejects.toThrow(OperError);
   user.rejects.toMatchObject({
     code: "U603",
     message: expect.any(String),
@@ -55,7 +57,7 @@ test("Activate user with an expired token", async () => {
 
   const result = expect(store.users.activateUser(user!.activationToken!));
 
-  result.rejects.toThrow();
+  result.rejects.toThrow(OperError);
   result.rejects.toMatchObject({
     code: "U600",
     message: expect.any(String),
