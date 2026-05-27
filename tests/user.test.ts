@@ -66,15 +66,63 @@ test("Activate user with an expired token", async () => {
 });
 
 test("Log user in", async () => {
-  const data = await store.users.logUserIn(
-    "itsmahmoud.dev@gmail.com",
-    "123456789",
-    false,
+  const data = await store.users.logUserIn(testEmail, testPassword, false);
+
+  expect(data).toMatchObject({
+    token: expect.any(String),
+    user: {
+      id: expect.any(Number),
+      name: expect.any(String),
+      email: expect.any(String),
+    },
+  });
+
+  expect(Object.values(UserRole)).toContain(data.user.role);
+});
+
+test("Log user in with an unregistered email", async () => {
+  const data = expect(
+    store.users.logUserIn(faker.internet.email(), faker.internet.password()),
   );
-  console.log(data);
-  expect(data).toHaveProperty("token");
-  expect(data).toHaveProperty("user");
-  expect(data.user).toHaveProperty("id");
-  expect(data.user).toHaveProperty("email");
-  expect(data.user).toHaveProperty("name");
+
+  data.rejects.toThrow(OperError);
+  data.rejects.toMatchObject({
+    code: "U601",
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
+
+test("Log user in with a wrong password", async () => {
+  const data = expect(
+    store.users.logUserIn(testEmail, faker.internet.password()),
+  );
+
+  data.rejects.toThrow(OperError);
+  data.rejects.toMatchObject({
+    code: "U601",
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
+
+test("Log in a pending user", async () => {
+  const user = await store.users.repository
+    .create({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: faker.internet.password(),
+    })
+    .save();
+
+  expect(user).not.toBeNull();
+
+  const result = expect(store.users.logUserIn(user.email!, user.password));
+
+  result.rejects.toThrow(OperError);
+  result.rejects.toMatchObject({
+    code: "U602",
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
 });
