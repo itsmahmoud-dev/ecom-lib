@@ -6,7 +6,7 @@ const testEmail = faker.internet.email();
 const testPassword = faker.internet.password();
 const testFullName = faker.person.fullName();
 
-test("Regsiter New User with Email", async () => {
+test("Regsiter new user with an email", () => {
   const user = expect(
     store.users.registerUserWithEmail(testFullName, testEmail, testPassword),
   );
@@ -14,7 +14,7 @@ test("Regsiter New User with Email", async () => {
   user.resolves.toBeTrue();
 });
 
-test("Register a Duplicate Email", async () => {
+test("Register a duplicate email", () => {
   const user = expect(
     store.users.registerUserWithEmail(testFullName, testEmail, testPassword),
   );
