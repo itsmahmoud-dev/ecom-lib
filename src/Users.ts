@@ -51,6 +51,11 @@ export class Users {
     return true;
   }
 
+  /**
+   * @param token string
+   * @returns true if the activation was successful
+   * @throws if the activation failed
+   */
   async activateUser(token: string) {
     const user = await this.repository.findOne({
       where: {
