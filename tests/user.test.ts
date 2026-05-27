@@ -35,3 +35,17 @@ test("Register a Duplicate Email", async () => {
 
   expect(activated).toBe(true);
 });
+
+test("Log user in", async () => {
+  const data = await store.users.logUserIn(
+    "itsmahmoud.dev@gmail.com",
+    "123456789",
+    false,
+  );
+  console.log(data);
+  expect(data).toHaveProperty("token");
+  expect(data).toHaveProperty("user");
+  expect(data.user).toHaveProperty("id");
+  expect(data.user).toHaveProperty("email");
+  expect(data.user).toHaveProperty("name");
+});

@@ -15,18 +15,21 @@ type StoreProps = {
     PASS: string;
     HOST: string;
   };
+  JWT_SECRET: string;
 };
 
 export class Store {
   name: string;
   dataSource: DataSource;
   dataPath: string;
+  JWT_SECRET: string;
   products: Products;
   users: Users;
 
   constructor(props: StoreProps) {
     this.name = props.name;
     this.dataPath = props.dataPath;
+    this.JWT_SECRET = props.JWT_SECRET;
     this.dataSource = new DataSource({
       type: "postgres",
       host: props.db.HOST,

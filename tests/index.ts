@@ -10,6 +10,7 @@ export const store = new Store({
     PASS: "mahmoud282003",
     HOST: "localhost",
   },
+  JWT_SECRET: "1234",
 });
 
 await store.initializeDatabase();

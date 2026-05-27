@@ -81,5 +81,58 @@ export class Users {
     return true;
   }
 
-  logUserIn() {}
+  // FIX ME: INTEGRATE REFRESH TOKENS SUPPORT
+  /**
+    @param email string
+    @param password string
+    @param rememberMe boolean?
+    @returns an object containing user data and token to be sent as a cookie
+  */
+  async logUserIn(
+    email: string,
+    password: string,
+    rememberMe: boolean = false,
+  ) {
+    const user = await this.repository.findOneBy({ email });
+
+    if (!user) {
+      throw new OperError({
+        code: "U601",
+        message: "Invalid email or password",
+        cause:
+          "The user may have mistyped their email, tried to log in instead of registering a new account, or typed in the wrong password",
+      });
+    }
+
+    if (user.status === UserStatus.PENDING) {
+      throw new OperError({
+        code: "U602",
+        message: "The user is awaiting activation",
+        cause: "The user has not activated his account yet",
+      });
+    }
+
+    if (!(await user.verifyPassword(password))) {
+      throw new OperError({
+        code: "U601",
+        message: "Invalid email or password",
+        cause:
+          "The user may have mistyped their email, tried to log in instead of registering a new account, or typed in the wrong password",
+      });
+    }
+
+    const token = sign({ id: user.id.toString() }, this.store.JWT_SECRET, {
+      expiresIn: rememberMe ? "30d" : "1d",
+      algorithm: "HS512",
+    });
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
+    };
+  }
 }
