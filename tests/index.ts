@@ -1,4 +1,5 @@
 import { Store } from "../src";
+import { afterAll } from "bun:test";
 
 export const store = new Store({
   name: "Test Store",
@@ -14,3 +15,7 @@ export const store = new Store({
 });
 
 await store.initializeDatabase();
+
+afterAll(async () => {
+  await store.users.repository.deleteAll();
+});
