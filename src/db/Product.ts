@@ -19,7 +19,7 @@ export class Product extends BaseEntity {
   name!: string;
 
   @Column({ type: "text", unique: true })
-  barcode!: string;
+  barcode?: string | null;
 
   @Column({ type: "enum", enum: ProductStatus, default: ProductStatus.PENDING })
   active!: ProductStatus;
