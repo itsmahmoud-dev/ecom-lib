@@ -1,4 +1,4 @@
-export * from "./clothing/clothingProduct";
-export * from "./clothing/clothingProductOption";
 export * from "./Product";
+export * from "./ProductOption";
 export * from "./User";
+export * from "./FacetDefinations";

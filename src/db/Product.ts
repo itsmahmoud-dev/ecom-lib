@@ -3,14 +3,14 @@ import {
   BaseEntity,
   PrimaryGeneratedColumn,
   Column,
-  TableInheritance,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from "typeorm";
 import { ProductStatus } from "../types/product";
+import type { ProductOption } from "./ProductOption";
 
 @Entity({ name: "product" })
-@TableInheritance({ column: { type: "text", name: "type" } })
 export class Product extends BaseEntity {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -22,13 +22,16 @@ export class Product extends BaseEntity {
   barcode?: string | null;
 
   @Column({ type: "enum", enum: ProductStatus, default: ProductStatus.PENDING })
-  active!: ProductStatus;
+  status!: ProductStatus;
 
   @Column({ type: "text" })
   description!: string;
 
   @Column({ type: "text" })
   category!: string;
+
+  @OneToMany("ProductOption", (o: ProductOption) => o.product)
+  options!: ProductOption[];
 
   @CreateDateColumn()
   createdAt!: Date;

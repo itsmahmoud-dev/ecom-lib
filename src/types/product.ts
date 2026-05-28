@@ -1,10 +1,3 @@
-import type { ClothingProduct } from "../db/clothing/clothingProduct";
-import type { ClothingProductOption } from "../db/clothing/clothingProductOption";
-
-export enum ProductType {
-  CLOTHING = "clothing",
-}
-
 export enum ProductStatus {
   ACTIVE = "active",
   PENDING = "pending",
@@ -21,9 +14,16 @@ export type ProductImage = {
   image: File;
 };
 
-export type CreateProductOptions = Pick<
-  ClothingProduct,
-  "name" | "barcode" | "active" | "description" | "category" | "tags" | "gender"
-> & {
-  options: Partial<ClothingProductOption>[];
+export type ClothingAttributes = {
+  type: "clothing";
+  size: string;
+  color: string;
 };
+
+export type ToyAttributes = {
+  type: "toy";
+  ageRange: string;
+  color: string;
+};
+
+export type ProductAttributes = ClothingAttributes | ToyAttributes;
