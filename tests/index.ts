@@ -18,4 +18,6 @@ await store.initializeDatabase();
 
 afterAll(async () => {
   await store.users.repository.deleteAll();
+  await store.products.repository.deleteAll();
+  await Bun.$`rm -rf ${store.dataPath}/images/products/*`;
 });
