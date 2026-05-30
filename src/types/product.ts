@@ -27,3 +27,17 @@ export type ToyAttributes = {
 };
 
 export type ProductAttributes = ClothingAttributes | ToyAttributes;
+
+export type CreateProductParams = {
+  name: string;
+  barcode: string | null;
+  status: ProductStatus;
+  description: string;
+  category: string;
+  options: {
+    attributes: ProductAttributes;
+    price: number;
+    discount: number;
+    images: File[];
+  }[];
+};

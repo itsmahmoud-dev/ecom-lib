@@ -1,7 +1,8 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
-import { Product, ClothingProduct, ClothingProductOption, User } from "./db";
+import { EventEmitter } from "node:events";
 
+import { FacetDefinations, Product, ProductOption, User } from "./db";
 import { Products } from "./Products";
 import { Users } from "./Users";
 
@@ -25,6 +26,7 @@ export class Store {
   JWT_SECRET: string;
   products: Products;
   users: Users;
+  emitter = new EventEmitter();
 
   constructor(props: StoreProps) {
     this.name = props.name;
@@ -37,7 +39,7 @@ export class Store {
       username: props.db.USER,
       password: props.db.PASS,
       database: props.db.NAME,
-      entities: [Product, ClothingProduct, ClothingProductOption, User],
+      entities: [Product, ProductOption, FacetDefinations, User],
       synchronize: true,
       logging: false,
     });

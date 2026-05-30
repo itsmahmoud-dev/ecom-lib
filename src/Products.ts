@@ -1,8 +1,14 @@
 import sharp from "sharp";
-import type { createProductOptions, ProductImage } from "./types";
+
+import { Product } from "./db";
+import { extractKeyValue, slugify } from "./lib/string";
+import { ProductEvents } from "./types/events";
+import { QueryFailedError, type Repository } from "typeorm";
+import { OperError } from "./lib/OperError";
+import { ProductErrorCodes } from "./types/error";
+
 import type { Store } from "./Store";
-import { ClothingProduct, Product } from "./db";
-import type { Repository } from "typeorm";
+import type { CreateProductParams } from "./types";
 
 export class Products {
   store: Store;
@@ -13,40 +19,63 @@ export class Products {
     this.repository = store.dataSource.getRepository(Product);
   }
 
-  async createProduct(p: createProductOptions, imgs: ProductImage[]) {
+  /**
+   *
+   * @param p CreateProductParams
+   * @returns the created product
+   * @throws a P600 error if the barcode already exists
+   */
+  async createProduct(p: CreateProductParams) {
     try {
-      const imageLinks: { color: string; filename: string }[] = [];
-      imgs.forEach(async (img) => {
-        const filename = `${p.name}-${img.color}-${Date.now()}`;
+      const options = await Promise.all(
+        p.options.map(async (option) => {
+          const images = await Promise.all(
+            option.images.map(async (img, j) => {
+              const { type, ...restAttrs } = option.attributes;
+              const attrs = Object.values(restAttrs);
 
-        await sharp(await img.image.arrayBuffer())
-          .resize(500, 500, { fit: "fill" })
-          .webp()
-          .toFormat("webp")
-          .toFile(`${this.store.dataPath}/images/products/${filename}.webp`);
+              const filename = `${slugify(p.name)}-${attrs.map((el) => slugify(el)).join("-")}-${Date.now()}${j}.webp`;
 
-        imageLinks.push({ color: img.color, filename });
-      });
+              await sharp(await img.arrayBuffer())
+                .resize(500, 500, { fit: "fill" })
+                .webp()
+                .toFile(`${this.store.dataPath}/images/products/${filename}`);
 
-      const product = await ClothingProduct.create({
-        name: p.name,
-        barcode: p.barcode,
-        active: p.active,
-        description: p.description,
-        category: p.category,
-        tags: p.tags,
-        gender: p.gender,
-        options: p.options.map((o) => ({
-          ...o,
-          images: imageLinks
-            .filter((img) => img.color === o.color)
-            .map((img) => img.filename),
-        })),
-      }).save();
+              return filename;
+            }),
+          );
+
+          return { ...option, images };
+        }),
+      );
+
+      const product = await this.repository
+        .create({
+          name: p.name,
+          barcode: p.barcode,
+          status: p.status,
+          description: p.description,
+          category: p.category,
+          options,
+        })
+        .save();
+
+      this.store.emitter.emit(ProductEvents.CREATED, product);
 
       return product;
-    } catch (e) {
-      console.log(e);
+    } catch (err) {
+      if (err instanceof QueryFailedError && err.driverError.code === "23505") {
+        const [key, value] = extractKeyValue(err.driverError.detail);
+        throw new OperError({
+          code: ProductErrorCodes.BarcodeAlreadyExists,
+          message: "Barcode alreay exists",
+          cause:
+            "The user is trying to create a product with a duplicate barcode",
+          key,
+          value,
+        });
+      }
+      throw err;
     }
   }
 }
