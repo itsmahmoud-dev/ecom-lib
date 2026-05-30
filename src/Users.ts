@@ -7,6 +7,7 @@ import { OperError } from "./lib/OperError";
 
 import { UserStatus } from "./types";
 import type { Store } from "./Store";
+import { UserErrorCodes } from "./types/error";
 
 export class Users {
   store: Store;
@@ -37,13 +38,15 @@ export class Users {
     try {
       await user.save();
     } catch (err) {
-      if (err instanceof QueryFailedError && err.driverError.code === "23505")
+      if (err instanceof QueryFailedError && err.driverError.code === "23505") {
         throw new OperError({
-          code: "U603",
+          code: UserErrorCodes.EmailAlreadyRegistered,
           message: "Email is already registered",
           cause:
             "User is trying to create a new account with an email registered for another account",
         });
+      }
+      throw err;
     }
 
     //TODO: SEND EMAIL TO USER FOR ACTIVATION
@@ -66,7 +69,7 @@ export class Users {
 
     if (!user) {
       throw new OperError({
-        code: "U600",
+        code: UserErrorCodes.TokenInvalidOrExpired,
         message: "Invalid or expired token",
         cause:
           "Token has expired (passed the 10 minutes mark) or does not exist in the database.",
@@ -97,7 +100,7 @@ export class Users {
 
     if (!user) {
       throw new OperError({
-        code: "U601",
+        code: UserErrorCodes.InvalidEmailOrPassword,
         message: "Invalid email or password",
         cause:
           "The user may have mistyped their email, tried to log in instead of registering a new account, or typed in the wrong password",
@@ -106,7 +109,7 @@ export class Users {
 
     if (user.status === UserStatus.PENDING) {
       throw new OperError({
-        code: "U602",
+        code: UserErrorCodes.AccountNotVerified,
         message: "The user is awaiting activation",
         cause: "The user has not activated his account yet",
       });
@@ -114,7 +117,7 @@ export class Users {
 
     if (!(await user.verifyPassword(password))) {
       throw new OperError({
-        code: "U601",
+        code: UserErrorCodes.InvalidEmailOrPassword,
         message: "Invalid email or password",
         cause:
           "The user may have mistyped their email, tried to log in instead of registering a new account, or typed in the wrong password",
