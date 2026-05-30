@@ -30,7 +30,9 @@ export class Product extends BaseEntity {
   @Column({ type: "text" })
   category!: string;
 
-  @OneToMany("ProductOption", (o: ProductOption) => o.product)
+  @OneToMany("ProductOption", (o: ProductOption) => o.product, {
+    cascade: ["insert", "recover", "remove", "soft-remove", "update"],
+  })
   options!: ProductOption[];
 
   @CreateDateColumn()

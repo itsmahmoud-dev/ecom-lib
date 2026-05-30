@@ -13,7 +13,7 @@ export class ProductOption extends BaseEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @ManyToOne("Product", (p: Product) => p.options)
+  @ManyToOne("Product", (p: Product) => p.options, { onDelete: "CASCADE" })
   product!: Product;
 
   @Column({ type: "numeric" })
