@@ -52,7 +52,23 @@ Activates the user's account. It takes a string token to look for its user. The 
 
 Matches the email and verifies the password, if all is correct it returns user data and token to be sent as a cookie for auth. It throws error `U601` if email or password are wrong and `U602` if the user is not yet verified. If remembeMe is `true` then the token is valid for _30 days_ and _1 day_ if `false`. Will work on more secure refresh tokens later.
 
+## Products
+
+### store.products.createProduct
+| Field | Type |
+|-------|------|
+|name|`string`|
+|barcode|`string`|
+|status|`ProductStatus.ACTIVE` or `ProductStatus.PENDING`|
+|description|string|
+|category|string|
+|options|```{ attributes:Record<string, string>,  price:number, discount:number, images:File[] }[]```|
+
+This method creates a product in the database and returns it, the options' attributes are dependant on the type of product you're creating, currently you can create clothing, and toy products. It also emits a `ProductEvent.CREATED` you can listen to with the `store.emitter` and perform an action whenever a product is created.
+
 ## Errors
+
+#### User Errors
 ##### U600: Token is invalid or expired when trying to activate the user's account
 - Happens when a token does not exist, for example if a user manually typed a random string that doesn't match a token in the database, or when the token has already expired.
 
@@ -63,4 +79,9 @@ Matches the email and verifies the password, if all is correct it returns user d
 - Happens when the user is trying to login before verifying their email.
 
 ##### U603: Email is already registered
-- Happens when the user is trying to log in with an email registered to another account.
+- Happens when the user is trying to create a new account with an email registered to another account.
+
+#### Product Errors
+
+##### P600: Duplicate barcode
+- Happens when a product is being created a barcode for anothe product.
