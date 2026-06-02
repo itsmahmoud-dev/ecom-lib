@@ -31,6 +31,7 @@ export class Product extends BaseEntity {
   category!: string;
 
   @OneToMany("ProductOption", (o: ProductOption) => o.product, {
+    eager: true,
     cascade: ["insert", "recover", "remove", "soft-remove", "update"],
   })
   options!: ProductOption[];
