@@ -1,5 +1,5 @@
 export function slugify(text: string) {
-  return text.toLowerCase().replace(" ", "-");
+  return text.toLowerCase().replace(" ", "-").replace("/", "-");
 }
 
 export function extractKeyValue(str: string): [string, string] | [] {
