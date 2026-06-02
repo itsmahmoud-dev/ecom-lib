@@ -7,4 +7,5 @@ export enum UserErrorCodes {
 
 export enum ProductErrorCodes {
   BarcodeAlreadyExists = "P600",
+  ProductNotFound = "P601",
 }
