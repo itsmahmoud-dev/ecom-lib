@@ -36,3 +36,24 @@ export type CreateProductParams = {
     images: File[];
   }[];
 };
+
+export type UpdateProductParams = {
+  id: number;
+  name?: string;
+  barcode?: string | null;
+  status?: ProductStatus;
+  description?: string;
+  category?: string;
+  options?: {
+    id: number;
+    dirty?: boolean;
+    attributes: ProductAttributes;
+    price: number;
+    discount: number;
+    imagesData: {
+      file?: File;
+      fileName?: string;
+    }[];
+  }[];
+  imagesToDelete?: string[];
+};

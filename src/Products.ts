@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import { renameSync, rmSync } from "fs";
 
 import { Product, ProductOption } from "./db";
 import { extractKeyValue, slugify } from "./lib/string";
@@ -8,7 +9,7 @@ import { OperError } from "./lib/OperError";
 import { ProductErrorCodes } from "./types/error";
 
 import type { Store } from "./Store";
-import type { CreateProductParams } from "./types";
+import type { CreateProductParams, UpdateProductParams } from "./types";
 
 export class Products {
   store: Store;
@@ -94,5 +95,76 @@ export class Products {
       }
       throw err;
     }
+  }
+
+  async updateProduct(params: UpdateProductParams) {
+    const product = await this.repository.findOneBy({ id: params.id });
+
+    if (!product)
+      throw new OperError({
+        code: ProductErrorCodes.ProductNotFound,
+        message: "Product not found",
+        cause: "The product with the given id does not exist",
+      });
+
+    const { options, ...fieldsToUpdate } = params;
+
+    Object.assign(product, { ...fieldsToUpdate });
+
+    // delete images marked for deletion, if any
+    if (params.imagesToDelete && params.imagesToDelete.length > 0) {
+      params.imagesToDelete.forEach((fileName) => {
+        rmSync(`${this.store.dataPath}/images/products/${fileName}`, {
+          force: true,
+        });
+      });
+    }
+
+    if (options && options.length > 0) {
+      const newOptions = await Promise.all(
+        options.map(async (o) => {
+          const { attributes, price, discount } = o;
+          const images = await Promise.all(
+            o.imagesData.map(async (imageData, i) => {
+              const { type, ...restAttrs } = attributes;
+              const attrs = Object.values(restAttrs);
+              const filename = `${slugify(product.name)}-${attrs.map((el) => slugify(el)).join("-")}-${Date.now()}${i}.webp`;
+
+              // if the image is a file, resize and save it
+              if (imageData.file) {
+                await sharp(await imageData.file.arrayBuffer())
+                  .resize(500, 500, { fit: "fill" })
+                  .webp()
+                  .toFile(`${this.store.dataPath}/images/products/${filename}`);
+
+                return filename;
+              }
+
+              // if the image is not a file, but the option is marked as dirty, rename it
+              if (o.dirty && imageData.fileName) {
+                renameSync(
+                  `${this.store.dataPath}/images/products/${imageData.fileName}`,
+                  `${this.store.dataPath}/images/products/${filename}`,
+                );
+                return filename;
+              }
+
+              return imageData.fileName!;
+            }),
+          );
+
+          const option = product.options.find((el) => el.id === o.id)!;
+          if (option)
+            Object.assign(option, { attributes, price, discount, images });
+
+          return option;
+        }),
+      );
+      if (newOptions) product.options = newOptions;
+    }
+
+    await product.save();
+
+    return product;
   }
 }
