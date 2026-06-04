@@ -27,6 +27,18 @@ export class Products {
    */
   async createProduct(p: CreateProductParams) {
     try {
+      const exists = await this.repository.existsBy({ barcode: p.barcode });
+
+      if (exists) {
+        throw new OperError({
+          code: ProductErrorCodes.BarcodeAlreadyExists,
+          message: "Barcode already exists",
+          cause: "The barcode is already in use",
+          key: "barcode",
+          value: p.barcode,
+        });
+      }
+
       const options = await Promise.all(
         p.options.map(async (option) => {
           const images = await Promise.all(
