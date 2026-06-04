@@ -1,6 +1,6 @@
 import sharp from "sharp";
 
-import { Product } from "./db";
+import { Product, ProductOption } from "./db";
 import { extractKeyValue, slugify } from "./lib/string";
 import { ProductEvents } from "./types/events";
 import { QueryFailedError, type Repository } from "typeorm";
@@ -57,7 +57,12 @@ export class Products {
             }),
           );
 
-          return { ...option, images };
+          return ProductOption.create({
+            attributes: option.attributes,
+            price: option.price,
+            discount: option.discount,
+            images,
+          });
         }),
       );
 
