@@ -9,11 +9,6 @@ export enum ProductGender {
   UNISEX = "unisex",
 }
 
-export type ProductImage = {
-  color: string;
-  image: File;
-};
-
 export type ClothingAttributes = {
   type: "clothing";
   size: string;
@@ -30,7 +25,7 @@ export type ProductAttributes = ClothingAttributes | ToyAttributes;
 
 export type CreateProductParams = {
   name: string;
-  barcode: string | null;
+  barcode?: string;
   status: ProductStatus;
   description: string;
   category: string;
