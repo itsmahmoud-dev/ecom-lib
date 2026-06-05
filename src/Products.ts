@@ -165,6 +165,8 @@ export class Products {
 
     await product.save();
 
+    this.store.emitter.emit(ProductEvents.UPDATED, product);
+
     return product;
   }
 }
