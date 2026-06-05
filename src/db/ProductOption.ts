@@ -6,7 +6,7 @@ import {
   PrimaryGeneratedColumn,
 } from "typeorm";
 import type { Product } from "./Product";
-import type { ProductAttributes } from "../types";
+import type { ProductAttributes, ProductOptionAttributes } from "../types";
 
 @Entity({ name: "product_option" })
 export class ProductOption extends BaseEntity {
@@ -20,7 +20,7 @@ export class ProductOption extends BaseEntity {
   productId!: number;
 
   @Column({ type: "simple-json" })
-  attributes!: ProductAttributes;
+  attributes!: ProductOptionAttributes;
 
   @Column({ type: "numeric" })
   price!: number;

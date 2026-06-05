@@ -7,7 +7,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from "typeorm";
-import { ProductStatus } from "../types/product";
+import { ProductStatus, type ProductAttributes } from "../types/product";
 import type { ProductOption } from "./ProductOption";
 
 @Entity({ name: "product" })
@@ -27,8 +27,8 @@ export class Product extends BaseEntity {
   @Column({ type: "text" })
   description!: string;
 
-  @Column({ type: "text" })
-  category!: string;
+  @Column({ type: "jsonb" })
+  attributes!: ProductAttributes;
 
   @OneToMany("ProductOption", (o: ProductOption) => o.product, {
     eager: true,

@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { faker } from "@faker-js/faker";
 import { store } from ".";
-import { ProductStatus, type UpdateProductParams } from "../src/types";
+import {
+  ProductGender,
+  ProductStatus,
+  type UpdateProductParams,
+} from "../src/types";
 import { Product } from "../src/db";
 import { readdirSync } from "fs";
 import { OperError } from "../src/lib/OperError";
@@ -9,11 +13,15 @@ import { ProductErrorCodes } from "../src/types/error";
 
 test("Create a product", async () => {
   const product = await store.products.createProduct({
-    category: faker.word.adjective(),
-    description: faker.commerce.productDescription(),
     name: faker.commerce.product(),
-    status: ProductStatus.PENDING,
     barcode: faker.number.bigInt().toString(),
+    description: faker.commerce.productDescription(),
+    attributes: {
+      type: "clothing",
+      category: faker.word.adjective(),
+      gender: ProductGender.UNISEX,
+    },
+    status: ProductStatus.PENDING,
     options: [
       {
         price: Number(faker.commerce.price()),
@@ -62,11 +70,15 @@ test("Create a product with a duplicate barcode", async () => {
   const testBarcode = (await store.products.repository.findOneBy({}))?.barcode;
 
   const result = store.products.createProduct({
-    category: faker.word.adjective(),
-    description: faker.commerce.productDescription(),
     name: faker.commerce.product(),
-    status: ProductStatus.PENDING,
     barcode: testBarcode!,
+    description: faker.commerce.productDescription(),
+    status: ProductStatus.PENDING,
+    attributes: {
+      type: "clothing",
+      category: faker.word.adjective(),
+      gender: ProductGender.UNISEX,
+    },
     options: [
       {
         price: Number(faker.commerce.price()),
@@ -108,7 +120,11 @@ test("Update a product", async () => {
     barcode: faker.number.bigInt().toString(),
     status: ProductStatus.ACTIVE,
     description: faker.commerce.productDescription(),
-    category: faker.word.adjective(),
+    attributes: {
+      type: "clothing",
+      category: faker.word.adjective(),
+      gender: ProductGender.UNISEX,
+    },
     imagesToDelete: [product?.options[0]?.images[0]!],
     options: [
       {
@@ -140,7 +156,7 @@ test("Update a product", async () => {
     barcode: newFields.barcode,
     status: newFields.status,
     description: newFields.description,
-    category: newFields.category,
+    attributes: newFields.attributes,
     options: newFields.options,
     imagesToDelete: newFields.imagesToDelete,
   });
@@ -151,7 +167,7 @@ test("Update a product", async () => {
   expect(updatedProduct.barcode).toBe(newFields.barcode);
   expect(updatedProduct.status).toBe(newFields.status);
   expect(updatedProduct.description).toBe(newFields.description);
-  expect(updatedProduct.category).toBe(newFields.category);
+  expect(updatedProduct.attributes).toMatchObject(newFields.attributes);
   expect(updatedProduct.options).toHaveLength(newFields.options.length);
 
   // make sure that the original image has been deleted

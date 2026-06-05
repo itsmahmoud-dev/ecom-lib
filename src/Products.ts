@@ -74,7 +74,7 @@ export class Products {
           barcode: p.barcode,
           status: p.status,
           description: p.description,
-          category: p.category,
+          attributes: p.attributes,
           options,
         })
         .save();
