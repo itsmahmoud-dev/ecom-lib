@@ -164,3 +164,16 @@ test("Update a product", async () => {
     updatedProduct?.options[0]?.images[0]!,
   );
 });
+
+test("Delete product", async () => {
+  const [product] = await store.products.repository.find({ take: 1 });
+
+  expect(product).toBeDefined();
+
+  await store.products.deleteProduct(product!.id);
+  const deletedProduct = await store.products.repository.findOneBy({
+    id: product!.id,
+  });
+
+  expect(deletedProduct).toBeNull();
+});

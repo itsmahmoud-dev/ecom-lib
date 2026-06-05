@@ -185,4 +185,18 @@ export class Products {
 
     return product;
   }
+
+  async deleteProduct(id: number) {
+    const product = await this.repository.findOneBy({ id });
+    if (!product) {
+      throw new OperError({
+        code: ProductErrorCodes.ProductNotFound,
+        message: "Product not found",
+      });
+    }
+
+    await this.repository.remove(product);
+
+    this.store.emitter.emit(ProductEvents.DELETED, product);
+  }
 }
