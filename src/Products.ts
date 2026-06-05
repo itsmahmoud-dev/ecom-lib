@@ -4,7 +4,7 @@ import { renameSync, rmSync } from "fs";
 import { Product, ProductOption } from "./db";
 import { extractKeyValue, slugify } from "./lib/string";
 import { ProductEvents } from "./types/events";
-import { QueryFailedError, type Repository } from "typeorm";
+import { Not, QueryFailedError, type Repository } from "typeorm";
 import { OperError } from "./lib/OperError";
 import { ProductErrorCodes } from "./types/error";
 
@@ -98,6 +98,22 @@ export class Products {
   }
 
   async updateProduct(params: UpdateProductParams) {
+    const barcode = params.barcode;
+
+    if (
+      barcode &&
+      (await this.repository.existsBy({ barcode, id: Not(params.id) }))
+    ) {
+      throw new OperError({
+        code: ProductErrorCodes.BarcodeAlreadyExists,
+        message: "Barcode alreay exists",
+        cause:
+          "The user is trying to create a product with a duplicate barcode",
+        key: "barcode",
+        value: barcode,
+      });
+    }
+
     const product = await this.repository.findOneBy({ id: params.id });
 
     if (!product)
