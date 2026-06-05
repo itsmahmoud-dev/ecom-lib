@@ -25,6 +25,7 @@ export class Products {
    * @param p CreateProductParams
    * @returns the created product
    * @throws a P600 error if the barcode already exists
+   * @emits ProductEvents.CREATED
    */
   async createProduct(p: CreateProductParams) {
     try {
@@ -97,6 +98,13 @@ export class Products {
     }
   }
 
+  /**
+   * @param params UpdateProductParams
+   * @returns the updated product
+   * @throws a P600 error if the new barcode belongs to a different product
+   * @throws a P601 error if no product with the given id exists
+   * @emits ProductEvents.UPDATED
+   */
   async updateProduct(params: UpdateProductParams) {
     const barcode = params.barcode;
 
@@ -186,6 +194,11 @@ export class Products {
     return product;
   }
 
+  /**
+   * @param id the id of the product to delete
+   * @throws a P601 error if no product with the given id exists
+   * @emits ProductEvents.DELETED
+   */
   async deleteProduct(id: number) {
     const product = await this.repository.findOneBy({ id });
     if (!product) {
