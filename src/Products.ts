@@ -108,7 +108,7 @@ export class Products {
         code: ProductErrorCodes.BarcodeAlreadyExists,
         message: "Barcode alreay exists",
         cause:
-          "The user is trying to create a product with a duplicate barcode",
+          "The user is trying to update a product with a duplicate barcode",
         key: "barcode",
         value: barcode,
       });
