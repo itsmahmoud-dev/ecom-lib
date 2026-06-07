@@ -4,7 +4,6 @@ import {
   CreateDateColumn,
   Entity,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from "typeorm";
 
 @Entity({ name: "facet_definations" })
@@ -13,7 +12,7 @@ export class FacetDefinations extends BaseEntity {
   id!: number;
 
   @Column({ type: "text" })
-  type!: string;
+  key!: string;
 
   @Column({ type: "text" })
   value!: string;
