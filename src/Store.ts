@@ -39,6 +39,7 @@ export class Store<
   // Repositories
   users: Users;
   products: Products<productFacetKeys, productOptionFacetKeys>;
+  facets: Facets<productFacetKeys, productOptionFacetKeys>;
 
   emitter = new EventEmitter();
 
