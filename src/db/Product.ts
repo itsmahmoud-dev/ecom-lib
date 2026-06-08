@@ -7,11 +7,14 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from "typeorm";
-import { ProductStatus, type ProductAttributes } from "../types/product";
+import { ProductStatus } from "../types/product";
 import type { ProductOption } from "./ProductOption";
 
 @Entity({ name: "product" })
-export class Product extends BaseEntity {
+export class Product<
+  attributes extends string[] = string[],
+  optionAttributes extends string[] = string[],
+> extends BaseEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 
@@ -28,13 +31,13 @@ export class Product extends BaseEntity {
   description!: string;
 
   @Column({ type: "jsonb" })
-  attributes!: ProductAttributes;
+  attributes!: Record<attributes[number], any>;
 
   @OneToMany("ProductOption", (o: ProductOption) => o.product, {
     eager: true,
     cascade: ["insert", "recover", "remove", "soft-remove", "update"],
   })
-  options!: ProductOption[];
+  options!: ProductOption<optionAttributes>[];
 
   @CreateDateColumn()
   createdAt!: Date;

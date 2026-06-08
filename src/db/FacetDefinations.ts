@@ -7,7 +7,7 @@ import {
 } from "typeorm";
 
 @Entity({ name: "facet_definations" })
-export class FacetDefinations extends BaseEntity {
+export class FacetDefination extends BaseEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 

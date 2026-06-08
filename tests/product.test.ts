@@ -1,11 +1,7 @@
 import { expect, test } from "bun:test";
 import { faker } from "@faker-js/faker";
 import { store } from ".";
-import {
-  ProductGender,
-  ProductStatus,
-  type UpdateProductParams,
-} from "../src/types";
+import { ProductStatus, type UpdateProductParams } from "../src/types";
 import { Product } from "../src/db";
 import { readdirSync } from "fs";
 import { OperError } from "../src/lib/OperError";
@@ -17,9 +13,8 @@ test("Create a product", async () => {
     barcode: faker.number.bigInt().toString(),
     description: faker.commerce.productDescription(),
     attributes: {
-      type: "clothing",
       category: faker.word.adjective(),
-      gender: ProductGender.UNISEX,
+      gender: "unisex",
     },
     status: ProductStatus.PENDING,
     options: [
@@ -27,7 +22,6 @@ test("Create a product", async () => {
         price: Number(faker.commerce.price()),
         discount: 0,
         attributes: {
-          type: "clothing",
           color: faker.color.human(),
           size: "XXL",
         },
@@ -75,16 +69,14 @@ test("Create a product with a duplicate barcode", async () => {
     description: faker.commerce.productDescription(),
     status: ProductStatus.PENDING,
     attributes: {
-      type: "clothing",
       category: faker.word.adjective(),
-      gender: ProductGender.UNISEX,
+      gender: "unisex",
     },
     options: [
       {
         price: Number(faker.commerce.price()),
         discount: 0,
         attributes: {
-          type: "clothing",
           color: faker.color.human(),
           size: "XXL",
         },
@@ -121,9 +113,7 @@ test("Update a product", async () => {
     status: ProductStatus.ACTIVE,
     description: faker.commerce.productDescription(),
     attributes: {
-      type: "clothing",
-      category: faker.word.adjective(),
-      gender: ProductGender.UNISEX,
+      gender: "unisex",
     },
     imagesToDelete: [product?.options[0]?.images[0]!],
     options: [
@@ -148,7 +138,7 @@ test("Update a product", async () => {
         ],
       },
     ],
-  } satisfies UpdateProductParams;
+  };
 
   const updatedProduct = await store.products.updateProduct({
     id: newFields.id,

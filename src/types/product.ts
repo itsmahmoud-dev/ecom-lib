@@ -3,73 +3,39 @@ export enum ProductStatus {
   PENDING = "pending",
 }
 
-export enum ProductGender {
-  MALE = "male",
-  FEMALE = "female",
-  UNISEX = "unisex",
-}
-
 // -------------------------------------------------------------
 
-export type ClothingAttributes = {
-  type: "clothing";
-  category: string;
-  gender: ProductGender;
-};
-
-export type ToyAttributes = {
-  type: "toy";
-  category: string;
-  gender: ProductGender;
-  ageRange: string;
-};
-
-export type ProductAttributes = ClothingAttributes | ToyAttributes;
-
-// -------------------------------------------------------------
-
-export type ClothingOptionAttributes = {
-  type: "clothing";
-  size: string;
-  color: string;
-};
-
-export type ToyOptionAttributes = {
-  type: "toy";
-  color: string;
-};
-
-export type ProductOptionAttributes =
-  | ClothingOptionAttributes
-  | ToyOptionAttributes;
-
-// -------------------------------------------------------------
-
-export type CreateProductParams = {
+export type CreateProductParams<
+  productAttributes extends string[] = string[],
+  productOptionAttributes extends string[] = string[],
+> = {
   name: string;
   barcode?: string;
   status: ProductStatus;
   description: string;
-  attributes: ProductAttributes;
+  attributes: Record<productAttributes[number], string>;
   options: {
-    attributes: ProductOptionAttributes;
+    attributes: Record<productOptionAttributes[number], string>;
     price: number;
     discount: number;
     images: File[];
   }[];
 };
 
-export type UpdateProductParams = {
+export type UpdateProductParams<
+  productAttributes extends string[] = string[],
+  productOptionAttributes extends string[] = string[],
+> = {
   id: number;
   name?: string;
   barcode?: string | null;
   status?: ProductStatus;
   description?: string;
-  attributes?: ProductAttributes;
+  attributes?: Record<productAttributes[number], string>;
   options?: {
     id: number;
     dirty?: boolean;
-    attributes: ProductOptionAttributes;
+    attributes: Record<productOptionAttributes[number], string>;
     price: number;
     discount: number;
     imagesData: {

@@ -11,11 +11,14 @@ import { ProductErrorCodes } from "./types/error";
 import type { Store } from "./Store";
 import type { CreateProductParams, UpdateProductParams } from "./types";
 
-export class Products {
-  store: Store;
+export class Products<
+  productFacetKeys extends string[],
+  productOptionFacetKeys extends string[],
+> {
+  store: Store<productFacetKeys, productOptionFacetKeys>;
   repository: Repository<Product>;
 
-  constructor(store: Store) {
+  constructor(store: Store<productFacetKeys, productOptionFacetKeys>) {
     this.store = store;
     this.repository = store.dataSource.getRepository(Product);
   }
@@ -27,7 +30,9 @@ export class Products {
    * @throws a P600 error if the barcode already exists
    * @emits ProductEvents.CREATED
    */
-  async createProduct(p: CreateProductParams) {
+  async createProduct(
+    p: CreateProductParams<productFacetKeys, productOptionFacetKeys>,
+  ) {
     try {
       const exists = await this.repository.existsBy({ barcode: p.barcode });
 
@@ -45,8 +50,7 @@ export class Products {
         p.options.map(async (option) => {
           const images = await Promise.all(
             option.images.map(async (img, j) => {
-              const { type, ...restAttrs } = option.attributes;
-              const attrs = Object.values(restAttrs);
+              const attrs = Object.values<string>(option.attributes);
 
               const filename = `${slugify(p.name)}-${attrs.map((el) => slugify(el)).join("-")}-${Date.now()}${j}.webp`;
 
@@ -68,16 +72,18 @@ export class Products {
         }),
       );
 
-      const product = await this.repository
-        .create({
-          name: p.name,
-          barcode: p.barcode,
-          status: p.status,
-          description: p.description,
-          attributes: p.attributes,
-          options,
-        })
-        .save();
+      const product = new Product<productFacetKeys, productOptionFacetKeys>();
+
+      Object.assign(product, {
+        name: p.name,
+        barcode: p.barcode,
+        status: p.status,
+        description: p.description,
+        attributes: p.attributes,
+        options,
+      });
+
+      await product.save();
 
       this.store.emitter.emit(ProductEvents.CREATED, product);
 
