@@ -7,12 +7,14 @@ import {
 } from "typeorm";
 
 @Entity({ name: "facet_definations" })
-export class FacetDefination extends BaseEntity {
+export class FacetDefination<
+  keys extends string[] = string[],
+> extends BaseEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 
   @Column({ type: "text" })
-  key!: string;
+  key!: keys[number];
 
   @Column({ type: "text" })
   value!: string;
