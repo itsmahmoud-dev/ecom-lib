@@ -1,14 +1,11 @@
-import {
-  QueryFailedError,
-  type FindOptionsWhereProperty,
-  type Repository,
-} from "typeorm";
+import { QueryFailedError } from "typeorm";
 import { FacetDefination } from "./db";
 import { OperError } from "./lib/OperError";
 import { extractKeyValue } from "./lib/string";
 import { FacetErrorCodes } from "./types/error";
 
 import type { Store } from "./Store";
+import type { Repository, FindOptionsWhereProperty } from "typeorm";
 
 export class Facets<
   productFacetKeys extends string[] = string[],
