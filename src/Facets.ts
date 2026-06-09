@@ -1,11 +1,14 @@
 import { FacetDefination } from "./db";
 
-import type { Repository } from "typeorm";
+import { QueryFailedError, type Repository } from "typeorm";
 import type { Store } from "./Store";
+import { OperError } from "./lib/OperError";
+import { extractKeyValue } from "./lib/string";
+import { FacetErrorCodes, ProductErrorCodes } from "./types/error";
 
 export class Facets<
-  productFacetKeys extends string[],
-  productOptionFacetKeys extends string[],
+  productFacetKeys extends string[] = string[],
+  productOptionFacetKeys extends string[] = string[],
 > {
   repository: Repository<
     FacetDefination<productFacetKeys | productOptionFacetKeys>
@@ -24,11 +27,26 @@ export class Facets<
     key: productFacetKeys[number] | productOptionFacetKeys[number],
     value: string,
   ) {
-    const facet = new FacetDefination<
-      productFacetKeys | productOptionFacetKeys
-    >();
-    facet.key = key;
-    facet.value = value;
-    await this.repository.save(facet);
+    try {
+      const facet = new FacetDefination<
+        productFacetKeys | productOptionFacetKeys
+      >();
+      facet.key = key;
+      facet.value = value;
+      return await this.repository.save(facet);
+    } catch (err) {
+      if (err instanceof QueryFailedError && err.driverError.code === "23505") {
+        const [key, value] = extractKeyValue(err.driverError.detail);
+        throw new OperError({
+          code: FacetErrorCodes.FacetAlreadyExists,
+          message: `Facet already exists`,
+          cause:
+            "The user is trying to create a facet with a duplicate key and value",
+          key,
+          value,
+        });
+      }
+      throw err;
+    }
   }
 }
