@@ -9,11 +9,14 @@ import { UserStatus } from "./types";
 import type { Store } from "./Store";
 import { UserErrorCodes } from "./types/error";
 
-export class Users {
-  store: Store;
+export class Users<
+  productFacetKeys extends string[] = string[],
+  productOptionFacetKeys extends string[] = string[],
+> {
+  store: Store<productFacetKeys, productOptionFacetKeys>;
   repository: Repository<User>;
 
-  constructor(store: Store) {
+  constructor(store: Store<productFacetKeys, productOptionFacetKeys>) {
     this.store = store;
     this.repository = this.store.dataSource.getRepository(User);
   }

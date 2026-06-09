@@ -8,8 +8,8 @@ import { Users } from "./Users";
 import { Facets } from "./Facets";
 
 type StoreProps<
-  productFacetKeys extends string[],
-  productOptionFacetKeys extends string[],
+  productFacetKeys extends string[] = string[],
+  productOptionFacetKeys extends string[] = string[],
 > = {
   name: string;
   dataPath: string;
@@ -37,7 +37,7 @@ export class Store<
   readonly productOptionFacetKeys: productOptionFacetKeys;
 
   // Repositories
-  users: Users;
+  users: Users<productFacetKeys, productOptionFacetKeys>;
   products: Products<productFacetKeys, productOptionFacetKeys>;
   facets: Facets<productFacetKeys, productOptionFacetKeys>;
 
