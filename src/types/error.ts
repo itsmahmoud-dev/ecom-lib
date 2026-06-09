@@ -9,3 +9,7 @@ export enum ProductErrorCodes {
   BarcodeAlreadyExists = "P600",
   ProductNotFound = "P601",
 }
+
+export enum FacetErrorCodes {
+  FacetAlreadyExists = "F600",
+}
