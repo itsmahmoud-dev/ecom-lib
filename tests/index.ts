@@ -1,5 +1,6 @@
 import { Store } from "../src";
 import { afterAll } from "bun:test";
+import { rmSync } from "fs";
 
 export const store = new Store({
   name: "Test Store",
@@ -21,5 +22,6 @@ await store.initializeDatabase();
 afterAll(async () => {
   await store.users.repository.deleteAll();
   await store.products.repository.deleteAll();
-  await Bun.$`rm -rf ${store.dataPath}/images/products/*`;
+  await store.facets.repository.deleteAll();
+  rmSync(`${store.dataPath}/images/products/*`, { force: true });
 });
