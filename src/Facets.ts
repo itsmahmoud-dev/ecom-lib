@@ -1,10 +1,14 @@
+import {
+  QueryFailedError,
+  type FindOptionsWhereProperty,
+  type Repository,
+} from "typeorm";
 import { FacetDefination } from "./db";
-
-import { QueryFailedError, type Repository } from "typeorm";
-import type { Store } from "./Store";
 import { OperError } from "./lib/OperError";
 import { extractKeyValue } from "./lib/string";
-import { FacetErrorCodes, ProductErrorCodes } from "./types/error";
+import { FacetErrorCodes } from "./types/error";
+
+import type { Store } from "./Store";
 
 export class Facets<
   productFacetKeys extends string[] = string[],
@@ -48,5 +52,24 @@ export class Facets<
       }
       throw err;
     }
+  }
+
+  async removeFacet(
+    key: FindOptionsWhereProperty<
+      productFacetKeys[number] | productOptionFacetKeys[number]
+    >,
+    value: string,
+  ) {
+    const facet = await this.repository.findOne({ where: { key, value } });
+    if (!facet) {
+      throw new OperError({
+        code: FacetErrorCodes.FacetNotFound,
+        message: `Facet not found`,
+        cause: "The user is trying to remove a facet that does not exist",
+        key: key.toString(),
+        value,
+      });
+    }
+    await facet.remove();
   }
 }

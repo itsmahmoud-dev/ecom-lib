@@ -12,4 +12,5 @@ export enum ProductErrorCodes {
 
 export enum FacetErrorCodes {
   FacetAlreadyExists = "F600",
+  FacetNotFound = "F601",
 }
