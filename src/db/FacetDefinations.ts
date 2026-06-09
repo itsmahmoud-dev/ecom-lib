@@ -4,9 +4,11 @@ import {
   CreateDateColumn,
   Entity,
   PrimaryGeneratedColumn,
+  Unique,
 } from "typeorm";
 
-@Entity({ name: "facet_definations" })
+@Entity({ name: "facet_defination" })
+@Unique("key value pair", ["key", "value"])
 export class FacetDefination<
   keys extends string[] = string[],
 > extends BaseEntity {
