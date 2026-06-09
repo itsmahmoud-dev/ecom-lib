@@ -1,22 +1,23 @@
 import sharp from "sharp";
 import { renameSync, rmSync } from "fs";
+import { Not, QueryFailedError } from "typeorm";
 
 import { Product, ProductOption } from "./db";
 import { extractKeyValue, slugify } from "./lib/string";
 import { ProductEvents } from "./types/events";
-import { Not, QueryFailedError, type Repository } from "typeorm";
 import { OperError } from "./lib/OperError";
 import { ProductErrorCodes } from "./types/error";
 
 import type { Store } from "./Store";
 import type { CreateProductParams, UpdateProductParams } from "./types";
+import type { FindOneOptions, Repository, FindManyOptions } from "typeorm";
 
 export class Products<
   productFacetKeys extends string[],
   productOptionFacetKeys extends string[],
 > {
   store: Store<productFacetKeys, productOptionFacetKeys>;
-  repository: Repository<Product>;
+  repository: Repository<Product<productFacetKeys, productOptionFacetKeys>>;
 
   constructor(store: Store<productFacetKeys, productOptionFacetKeys>) {
     this.store = store;
@@ -24,7 +25,44 @@ export class Products<
   }
 
   /**
-   *
+   * Retrieves a list of products based on the provided find options.
+   * @param params The find options for the products.
+   * @returns A list of products matching the find options.
+   */
+  async getProducts(params: FindManyOptions<Product>) {
+    return this.repository.find(params);
+  }
+
+  /**
+   * Retrieves a product based on the provided find options.
+   * @param params The find options for the product.
+   * @returns The product matching the find options, or null if not found.
+   */
+  async getProduct(params: FindOneOptions<Product>) {
+    return this.repository.findOne(params);
+  }
+
+  /**
+   * Retrieves a product by its ID.
+   * @param id The ID of the product.
+   * @returns The product with the specified ID, or null if not found.
+   */
+
+  async getProductById(id: number) {
+    return this.repository.findOneBy({ id });
+  }
+
+  /**
+   * Retrieves a product by its barcode.
+   * @param barcode The barcode of the product.
+   * @returns The product with the specified barcode, or null if not found.
+   */
+  async getProductByBarcode(barcode: string) {
+    return this.repository.findOneBy({ barcode });
+  }
+
+  /**
+   * Creates a new product.
    * @param p CreateProductParams
    * @returns the created product
    * @throws a P600 error if the barcode already exists
@@ -105,6 +143,7 @@ export class Products<
   }
 
   /**
+   * Updates an existing product.
    * @param params UpdateProductParams
    * @returns the updated product
    * @throws a P600 error if the new barcode belongs to a different product
@@ -160,7 +199,7 @@ export class Products<
               const attrs = Object.values(restAttrs);
               const filename = `${slugify(product.name)}-${attrs.map((el) => slugify(el)).join("-")}-${Date.now()}${i}.webp`;
 
-              // if the image is a file, resize and save it
+              // * if the image is a file, resize and save it
               if (imageData.file) {
                 await sharp(await imageData.file.arrayBuffer())
                   .resize(500, 500, { fit: "fill" })
@@ -170,7 +209,7 @@ export class Products<
                 return filename;
               }
 
-              // if the image is not a file, but the option is marked as dirty, rename it
+              // * if the image is not a file, but the option is marked as dirty, rename it
               if (o.dirty && imageData.fileName) {
                 renameSync(
                   `${this.store.dataPath}/images/products/${imageData.fileName}`,
@@ -201,6 +240,7 @@ export class Products<
   }
 
   /**
+   * Deletes a product by its id.
    * @param id the id of the product to delete
    * @throws a P601 error if no product with the given id exists
    * @emits ProductEvents.DELETED
