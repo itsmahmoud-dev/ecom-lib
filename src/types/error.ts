@@ -3,6 +3,7 @@ export enum UserErrorCodes {
   InvalidEmailOrPassword = "U601",
   AccountNotVerified = "U602",
   EmailAlreadyRegistered = "U603",
+  UserNotFound = "U604",
 }
 
 export enum ProductErrorCodes {

@@ -142,4 +142,30 @@ export class Users<
       },
     };
   }
+
+  async getUserById(id: number) {
+    const user = await this.repository.findOne({
+      where: { id },
+      select: [
+        "id",
+        "name",
+        "email",
+        "phoneNumber",
+        "role",
+        "status",
+        "createdAt",
+        "updatedAt",
+      ],
+    });
+
+    if (!user) {
+      throw new OperError({
+        code: UserErrorCodes.UserNotFound,
+        message: "User not found",
+        cause: "The user with the specified ID does not exist",
+      });
+    }
+
+    return user;
+  }
 }
