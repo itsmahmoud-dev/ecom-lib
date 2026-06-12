@@ -144,6 +144,12 @@ export class Users<
     };
   }
 
+  /**
+   * Retrieves a user by their ID
+   * @param id
+   * @returns user if found
+   * @throws if user not found
+   */
   async getUserById(id: number) {
     const user = await this.repository.findOne({
       where: { id },
