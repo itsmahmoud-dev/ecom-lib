@@ -163,3 +163,18 @@ test("Get user by id - not found", async () => {
     cause: expect.any(String),
   });
 });
+
+test("Change user name", async () => {
+  const user = await store.users.repository
+    .create({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: faker.internet.password(),
+    })
+    .save();
+
+  const newName = faker.person.fullName();
+  const updatedUser = await store.users.changeName(user.id, newName);
+
+  expect(updatedUser.name).toBe(newName);
+});
