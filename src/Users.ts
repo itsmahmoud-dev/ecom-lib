@@ -1,13 +1,14 @@
-import { MoreThan, QueryFailedError, type Repository } from "typeorm";
+import { MoreThan, QueryFailedError } from "typeorm";
 import crypto from "crypto";
 import { sign } from "jsonwebtoken";
 
 import { User } from "./db/User";
 import { OperError } from "./lib/OperError";
-
-import { UserStatus } from "./types";
-import type { Store } from "./Store";
 import { UserErrorCodes } from "./types/error";
+import { UserStatus } from "./types";
+
+import type { Store } from "./Store";
+import type { Repository } from "typeorm";
 
 export class Users<
   productFacetKeys extends string[] = string[],
