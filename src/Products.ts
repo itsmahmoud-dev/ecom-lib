@@ -39,7 +39,14 @@ export class Products<
    * @returns The product matching the find options, or null if not found.
    */
   async getProduct(params: FindOneOptions<Product>) {
-    return this.repository.findOne(params);
+    const product = await this.repository.findOne(params);
+    if (!product) {
+      throw new OperError({
+        code: ProductErrorCodes.ProductNotFound,
+        message: "Product not found",
+      });
+    }
+    return product;
   }
 
   /**
@@ -49,7 +56,14 @@ export class Products<
    */
 
   async getProductById(id: number) {
-    return this.repository.findOneBy({ id });
+    const product = await this.repository.findOneBy({ id });
+    if (!product) {
+      throw new OperError({
+        code: ProductErrorCodes.ProductNotFound,
+        message: "Product not found",
+      });
+    }
+    return product;
   }
 
   /**
@@ -58,7 +72,14 @@ export class Products<
    * @returns The product with the specified barcode, or null if not found.
    */
   async getProductByBarcode(barcode: string) {
-    return this.repository.findOneBy({ barcode });
+    const product = await this.repository.findOneBy({ barcode });
+    if (!product) {
+      throw new OperError({
+        code: ProductErrorCodes.ProductNotFound,
+        message: "Product not found",
+      });
+    }
+    return product;
   }
 
   /**
