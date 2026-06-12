@@ -175,4 +175,25 @@ export class Users<
 
     return user;
   }
+
+  /**
+   * Changes the name of a user
+   * @param id
+   * @param name
+   * @returns updated user
+   * @throws if user not found
+   */
+  async changeName(id: number, name: string) {
+    const user = await this.repository.findOne({ where: { id } });
+    if (!user) {
+      throw new OperError({
+        code: UserErrorCodes.UserNotFound,
+        message: "User not found",
+        cause: "The user with the specified ID does not exist",
+      });
+    }
+    user.name = name;
+    await user.save();
+    return user;
+  }
 }
