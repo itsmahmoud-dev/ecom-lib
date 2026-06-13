@@ -154,7 +154,7 @@ test("Get user by id", async () => {
   expect(userById?.passwordResetTokenExpiry).toBeUndefined();
 });
 
-test("Get user by id - not found", async () => {
+test("Get user that doesn't exist by id", async () => {
   const userById = store.users.getUserById(-1);
   expect(userById).rejects.toThrow(OperError);
   expect(userById).rejects.toMatchObject({
@@ -177,4 +177,88 @@ test("Change user name", async () => {
   const updatedUser = await store.users.changeName(user.id, newName);
 
   expect(updatedUser.name).toBe(newName);
+});
+
+test("Change name of a non-existent user", async () => {
+  const result = store.users.changeName(-1, faker.person.fullName());
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.UserNotFound,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
+
+test("Request email change", async () => {
+  const user = await store.users.repository
+    .create({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: faker.internet.password(),
+    })
+    .save();
+
+  const otp = await store.users.requestChangeEmail(user.id);
+
+  const updatedUser = await store.users.repository.findOneBy({ id: user.id });
+
+  expect(updatedUser!.emailChangeOtp).toBe(otp);
+  expect(updatedUser!.emailChangeOtpExpiry).toBeInstanceOf(Date);
+  expect(updatedUser!.emailChangeOtpExpiry!.getTime()).toBeGreaterThan(
+    Date.now(),
+  );
+});
+
+test("Request email change for a non-existent user", async () => {
+  const result = store.users.requestChangeEmail(-1);
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.UserNotFound,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
+
+test("Change email", async () => {
+  const user = await store.users.repository
+    .create({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: faker.internet.password(),
+    })
+    .save();
+
+  const otp = await store.users.requestChangeEmail(user.id);
+  const newEmail = faker.internet.email();
+  await store.users.changeEmail(user.id, otp, newEmail);
+
+  const updatedUser = await store.users.repository.findOneBy({ id: user.id });
+
+  expect(updatedUser!.email).toBe(newEmail);
+  expect(updatedUser!.emailChangeOtp).toBeNull();
+  expect(updatedUser!.emailChangeOtpExpiry).toBeNull();
+});
+
+test("Change email with wrong OTP", async () => {
+  const user = await store.users.repository
+    .create({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: faker.internet.password(),
+    })
+    .save();
+
+  await store.users.requestChangeEmail(user.id);
+  const result = store.users.changeEmail(
+    user.id,
+    "wrong-otp",
+    faker.internet.email(),
+  );
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.EmailChangeOtpInvalidOrExpired,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
 });
