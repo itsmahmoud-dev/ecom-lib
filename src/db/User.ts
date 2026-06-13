@@ -38,6 +38,12 @@ export class User extends BaseEntity {
   activationTokenExpiry?: Date | null;
 
   @Column({ type: "text", nullable: true })
+  emailChangeOtp?: string | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  emailChangeOtpExpiry?: Date | null;
+
+  @Column({ type: "text", nullable: true })
   passwordResetToken?: string | null;
 
   @Column({ type: "timestamptz", nullable: true })

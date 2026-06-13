@@ -196,4 +196,59 @@ export class Users<
     await user.save();
     return user;
   }
+
+  /**
+   * Requests an email change for a user by generating an OTP and saving it to the user's record.
+   * @param id user id
+   * @returns the generated OTP
+   * @throws if the user is not found
+   */
+  async requestChangeEmail(id: number) {
+    const user = await this.repository.findOne({ where: { id } });
+    if (!user) {
+      throw new OperError({
+        code: UserErrorCodes.UserNotFound,
+        message: "User not found",
+        cause: "The user with the specified ID does not exist",
+      });
+    }
+
+    const otp = crypto.randomBytes(3).toString("hex");
+
+    user.emailChangeOtp = otp;
+    user.emailChangeOtpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    await user.save();
+
+    return otp;
+  }
+
+  /**
+   * Changes the email of a user after verifying the OTP.
+   * @param id user id
+   * @param otp one-time password
+   * @param newEmail new email address
+   * @throws if the user is not found or the OTP is invalid or expired
+   */
+  async changeEmail(id: number, otp: string, newEmail: string) {
+    const user = await this.repository.findOne({
+      where: {
+        id,
+        emailChangeOtp: otp,
+        emailChangeOtpExpiry: MoreThan(new Date()),
+      },
+    });
+
+    if (!user) {
+      throw new OperError({
+        code: UserErrorCodes.EmailChangeOtpInvalidOrExpired,
+        message: "OTP is invalid or expired",
+        cause: "The OTP provided is either invalid or has expired",
+      });
+    }
+
+    user.email = newEmail;
+    user.emailChangeOtp = null;
+    user.emailChangeOtpExpiry = null;
+    await user.save();
+  }
 }
