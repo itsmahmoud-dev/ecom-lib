@@ -251,4 +251,28 @@ export class Users<
     user.emailChangeOtpExpiry = null;
     await user.save();
   }
+
+  async changePassword(id: number, oldPassword: string, newPassword: string) {
+    const user = await this.repository.findOne({ where: { id } });
+    if (!user) {
+      throw new OperError({
+        code: UserErrorCodes.UserNotFound,
+        message: "User not found",
+        cause: "The user with the specified ID does not exist",
+      });
+    }
+
+    const isPasswordValid = await user.verifyPassword(oldPassword);
+    if (!isPasswordValid) {
+      throw new OperError({
+        code: UserErrorCodes.WrongCurrentPassword,
+        message: "Wrong current password",
+        cause:
+          "The provided password does not match the user's current password",
+      });
+    }
+
+    user.password = await User.hashPassword(newPassword);
+    await user.save();
+  }
 }

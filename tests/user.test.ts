@@ -4,6 +4,7 @@ import { faker } from "@faker-js/faker";
 import { UserRole } from "../src/types";
 import { OperError } from "../src/lib/OperError";
 import { UserErrorCodes } from "../src/types/error";
+import { User } from "../src/db/User";
 
 const testEmail = faker.internet.email();
 const testPassword = faker.internet.password();
@@ -258,6 +259,46 @@ test("Change email with wrong OTP", async () => {
   expect(result).rejects.toThrow(OperError);
   expect(result).rejects.toMatchObject({
     code: UserErrorCodes.EmailChangeOtpInvalidOrExpired,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
+
+test("Change password", async () => {
+  const password = faker.internet.password();
+  const user = await store.users.repository
+    .create({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: await User.hashPassword(password),
+    })
+    .save();
+
+  const newPassword = faker.internet.password();
+  await store.users.changePassword(user.id, password, newPassword);
+
+  const updatedUser = await store.users.repository.findOneBy({ id: user.id });
+  expect(await updatedUser!.verifyPassword(newPassword)).toBeTrue();
+});
+
+test("Change password with wrong current password", async () => {
+  const user = await store.users.repository
+    .create({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: await User.hashPassword(faker.internet.password()),
+    })
+    .save();
+
+  const result = store.users.changePassword(
+    user.id,
+    "wrong-password",
+    faker.internet.password(),
+  );
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.WrongCurrentPassword,
     message: expect.any(String),
     cause: expect.any(String),
   });

@@ -5,6 +5,7 @@ export enum UserErrorCodes {
   EmailAlreadyRegistered = "U603",
   UserNotFound = "U604",
   EmailChangeOtpInvalidOrExpired = "U605",
+  WrongCurrentPassword = "U606",
 }
 
 export enum ProductErrorCodes {
