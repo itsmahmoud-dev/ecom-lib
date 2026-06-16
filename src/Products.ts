@@ -4,13 +4,12 @@ import { Not, QueryFailedError } from "typeorm";
 
 import { Product, ProductOption } from "./db";
 import { extractKeyValue, slugify } from "./lib/string";
-import { ProductEvents } from "./types/events";
 import { OperError } from "./lib/OperError";
 import { ProductErrorCodes } from "./types/error";
 
 import type { Store } from "./Store";
 import type { CreateProductParams, UpdateProductParams } from "./types";
-import type { FindOneOptions, Repository, FindManyOptions } from "typeorm";
+import type { Repository } from "typeorm";
 
 export class Products<
   productFacetKeys extends string[],
@@ -18,68 +17,12 @@ export class Products<
 > {
   store: Store<productFacetKeys, productOptionFacetKeys>;
   repository: Repository<Product<productFacetKeys, productOptionFacetKeys>>;
+  optionsRepository: Repository<ProductOption<productOptionFacetKeys>>;
 
   constructor(store: Store<productFacetKeys, productOptionFacetKeys>) {
     this.store = store;
     this.repository = store.dataSource.getRepository(Product);
-  }
-
-  /**
-   * Retrieves a list of products based on the provided find options.
-   * @param params The find options for the products.
-   * @returns A list of products matching the find options.
-   */
-  async getProducts(params: FindManyOptions<Product>) {
-    return this.repository.find(params);
-  }
-
-  /**
-   * Retrieves a product based on the provided find options.
-   * @param params The find options for the product.
-   * @returns The product matching the find options, or null if not found.
-   */
-  async getProduct(params: FindOneOptions<Product>) {
-    const product = await this.repository.findOne(params);
-    if (!product) {
-      throw new OperError({
-        code: ProductErrorCodes.ProductNotFound,
-        message: "Product not found",
-      });
-    }
-    return product;
-  }
-
-  /**
-   * Retrieves a product by its ID.
-   * @param id The ID of the product.
-   * @returns The product with the specified ID, or null if not found.
-   */
-
-  async getProductById(id: number) {
-    const product = await this.repository.findOneBy({ id });
-    if (!product) {
-      throw new OperError({
-        code: ProductErrorCodes.ProductNotFound,
-        message: "Product not found",
-      });
-    }
-    return product;
-  }
-
-  /**
-   * Retrieves a product by its barcode.
-   * @param barcode The barcode of the product.
-   * @returns The product with the specified barcode, or null if not found.
-   */
-  async getProductByBarcode(barcode: string) {
-    const product = await this.repository.findOneBy({ barcode });
-    if (!product) {
-      throw new OperError({
-        code: ProductErrorCodes.ProductNotFound,
-        message: "Product not found",
-      });
-    }
-    return product;
+    this.optionsRepository = store.dataSource.getRepository(ProductOption);
   }
 
   /**
@@ -87,7 +30,6 @@ export class Products<
    * @param p CreateProductParams
    * @returns the created product
    * @throws a P600 error if the barcode already exists
-   * @emits ProductEvents.CREATED
    */
   async createProduct(
     p: CreateProductParams<productFacetKeys, productOptionFacetKeys>,
@@ -122,7 +64,7 @@ export class Products<
             }),
           );
 
-          return ProductOption.create({
+          return this.optionsRepository.create({
             attributes: option.attributes,
             price: option.price,
             discount: option.discount,
@@ -143,8 +85,6 @@ export class Products<
       });
 
       await product.save();
-
-      this.store.emitter.emit(ProductEvents.CREATED, product);
 
       return product;
     } catch (err) {
@@ -169,7 +109,6 @@ export class Products<
    * @returns the updated product
    * @throws a P600 error if the new barcode belongs to a different product
    * @throws a P601 error if no product with the given id exists
-   * @emits ProductEvents.UPDATED
    */
   async updateProduct(params: UpdateProductParams) {
     const barcode = params.barcode;
@@ -255,8 +194,6 @@ export class Products<
 
     await product.save();
 
-    this.store.emitter.emit(ProductEvents.UPDATED, product);
-
     return product;
   }
 
@@ -264,7 +201,6 @@ export class Products<
    * Deletes a product by its id.
    * @param id the id of the product to delete
    * @throws a P601 error if no product with the given id exists
-   * @emits ProductEvents.DELETED
    */
   async deleteProduct(id: number) {
     const product = await this.repository.findOneBy({ id });
@@ -275,8 +211,6 @@ export class Products<
       });
     }
 
-    await this.repository.remove(product);
-
-    this.store.emitter.emit(ProductEvents.DELETED, product);
+    await product.remove();
   }
 }

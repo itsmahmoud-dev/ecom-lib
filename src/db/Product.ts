@@ -44,4 +44,22 @@ export class Product<
 
   @UpdateDateColumn()
   updatedAt!: Date;
+
+  /**
+   * Retrieves a product by its ID.
+   * @param id The ID of the product.
+   * @returns The product with the specified ID, or null if not found.
+   */
+  static findByID(id: number) {
+    return Product.findOne({ where: { id } });
+  }
+
+  /**
+   * Retrieves a product by its barcode.
+   * @param barcode The barcode of the product.
+   * @returns The product with the specified barcode, or null if not found.
+   */
+  static findByBarcode(barcode: string) {
+    return Product.findOne({ where: { barcode } });
+  }
 }
