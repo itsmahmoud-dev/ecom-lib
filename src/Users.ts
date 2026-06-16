@@ -53,8 +53,6 @@ export class Users<
       throw err;
     }
 
-    //TODO: SEND EMAIL TO USER FOR ACTIVATION
-
     return true;
   }
 
@@ -88,7 +86,6 @@ export class Users<
     return true;
   }
 
-  // FIX ME: INTEGRATE REFRESH TOKENS SUPPORT
   /**
     @param email string
     @param password string
