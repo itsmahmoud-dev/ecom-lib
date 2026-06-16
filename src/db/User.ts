@@ -63,15 +63,36 @@ export class User extends BaseEntity {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  async verifyPassword(password: string) {
-    return await Bun.password.verify(password, this.password, "argon2id");
+  verifyPassword(password: string) {
+    return Bun.password.verifySync(password, this.password, "argon2id");
   }
 
-  static async hashPassword(password: string) {
-    return await Bun.password.hash(password, {
+  static hashPassword(password: string) {
+    return Bun.password.hashSync(password, {
       algorithm: "argon2id",
       memoryCost: 65536,
       timeCost: 3,
+    });
+  }
+
+  /**
+   * Retrieves a user by their ID
+   * @param id
+   * @returns user if found, otherwise null
+   */
+  async findByID(id: number) {
+    return await User.findOne({
+      where: { id },
+      select: [
+        "id",
+        "name",
+        "email",
+        "phoneNumber",
+        "role",
+        "status",
+        "createdAt",
+        "updatedAt",
+      ],
     });
   }
 }

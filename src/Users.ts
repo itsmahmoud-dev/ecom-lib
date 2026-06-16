@@ -23,24 +23,28 @@ export class Users<
   }
 
   /**
+   * Registers a new user with the given name, email, and password.
    * @param name string
    * @param email string
    * @param password string
-   * @returns true if the registering was successful
+   * @returns activation token
+   * @throws {OperError} with code U603 if the email is already in use
    */
-  async registerUserWithEmail(name: string, email: string, password: string) {
-    const token = crypto.randomBytes(32).toString("hex");
-
-    const user = this.repository.create({
-      name: name,
-      email: email,
-      password: await User.hashPassword(password),
-      activationToken: token,
-      activationTokenExpiry: new Date(Date.now() + 10 * 60 * 1000),
-    });
-
+  async registerUser(name: string, email: string, password: string) {
     try {
-      await user.save();
+      const token = crypto.randomBytes(32).toString("hex");
+
+      await this.repository
+        .create({
+          name: name,
+          email: email,
+          password: User.hashPassword(password),
+          activationToken: token,
+          activationTokenExpiry: new Date(Date.now() + 10 * 60 * 1000),
+        })
+        .save();
+
+      return token;
     } catch (err) {
       if (err instanceof QueryFailedError && err.driverError.code === "23505") {
         throw new OperError({
@@ -52,14 +56,12 @@ export class Users<
       }
       throw err;
     }
-
-    return true;
   }
 
   /**
+   * Activates a user account using the provided activation token.
    * @param token string
-   * @returns true if the activation was successful
-   * @throws if the activation failed
+   * @throws {OperError} with code U600 if the token is invalid or expired
    */
   async activateUser(token: string) {
     const user = await this.repository.findOne({
@@ -82,16 +84,17 @@ export class Users<
     user.activationToken = null;
     user.activationTokenExpiry = null;
     await user.save();
-
-    return true;
   }
 
   /**
-    @param email string
-    @param password string
-    @param rememberMe boolean?
-    @returns an object containing user data and token to be sent as a cookie
-  */
+   * Logs in a user using their email and password.
+   * @param email string
+   * @param password string
+   * @param rememberMe boolean | undefined
+   * @returns an object containing user data and an access token
+   * @throws {OperError} with code U601 if the email is invalid or the password is incorrect
+   * @throws {OperError} with code U602 if the user's account is not verified
+   */
   async logUserIn(
     email: string,
     password: string,
@@ -116,7 +119,7 @@ export class Users<
       });
     }
 
-    if (!(await user.verifyPassword(password))) {
+    if (!user.verifyPassword(password)) {
       throw new OperError({
         code: UserErrorCodes.InvalidEmailOrPassword,
         message: "Invalid email or password",
@@ -142,43 +145,11 @@ export class Users<
   }
 
   /**
-   * Retrieves a user by their ID
-   * @param id
-   * @returns user if found
-   * @throws if user not found
-   */
-  async getUserById(id: number) {
-    const user = await this.repository.findOne({
-      where: { id },
-      select: [
-        "id",
-        "name",
-        "email",
-        "phoneNumber",
-        "role",
-        "status",
-        "createdAt",
-        "updatedAt",
-      ],
-    });
-
-    if (!user) {
-      throw new OperError({
-        code: UserErrorCodes.UserNotFound,
-        message: "User not found",
-        cause: "The user with the specified ID does not exist",
-      });
-    }
-
-    return user;
-  }
-
-  /**
    * Changes the name of a user
    * @param id
    * @param name
    * @returns updated user
-   * @throws if user not found
+   * @throws {OperError} with code U604 if the user is not found
    */
   async changeName(id: number, name: string) {
     const user = await this.repository.findOne({ where: { id } });
@@ -198,7 +169,7 @@ export class Users<
    * Requests an email change for a user by generating an OTP and saving it to the user's record.
    * @param id user id
    * @returns the generated OTP and user details
-   * @throws if the user is not found
+   * @throws {OperError} with code U604 if the user is not found
    */
   async requestChangeEmail(id: number) {
     const user = await this.repository.findOne({ where: { id } });
@@ -225,7 +196,7 @@ export class Users<
    * @param otp one-time password
    * @param newEmail new email address
    * @returns the updated user
-   * @throws if the user is not found or the OTP is invalid or expired
+   * @throws {OperError} with code U605 if the user is not found or the OTP is invalid or expired
    */
   async changeEmail(id: number, otp: string, newEmail: string) {
     const user = await this.repository.findOne({
@@ -257,6 +228,8 @@ export class Users<
    * @param id The user's ID.
    * @param oldPassword The user's current password.
    * @param newPassword The new password to set.
+   * @throws {OperError} with code U604 if the user is not found
+   * @throws {OperError} with code U606 if the old password is incorrect
    */
   async changePassword(id: number, oldPassword: string, newPassword: string) {
     const user = await this.repository.findOne({ where: { id } });
@@ -268,7 +241,7 @@ export class Users<
       });
     }
 
-    const isPasswordValid = await user.verifyPassword(oldPassword);
+    const isPasswordValid = user.verifyPassword(oldPassword);
     if (!isPasswordValid) {
       throw new OperError({
         code: UserErrorCodes.WrongCurrentPassword,
@@ -278,7 +251,7 @@ export class Users<
       });
     }
 
-    user.password = await User.hashPassword(newPassword);
+    user.password = User.hashPassword(newPassword);
     await user.save();
   }
 
@@ -286,7 +259,7 @@ export class Users<
    * Requests a password reset for the user with the specified ID.
    * @param id The user's ID.
    * @returns the generated password reset token and user details
-   * @throws if the user is not found
+   * @throws {OperError} with code U604 if the user is not found
    */
   async requestPasswordReset(id: number) {
     const user = await this.repository.findOne({ where: { id } });
@@ -308,8 +281,9 @@ export class Users<
 
   /**
    * Resets the user's password using the provided reset token and new password.
-   * @param token - The reset token.
-   * @param newPassword - The new password to set.
+   * @param token The reset token.
+   * @param newPassword The new password to set.
+   * @throws {OperError} with code U607 if the reset token is invalid or expired
    */
   async resetPassword(token: string, newPassword: string) {
     const user = await this.repository.findOne({
@@ -326,7 +300,7 @@ export class Users<
       });
     }
 
-    user.password = await User.hashPassword(newPassword);
+    user.password = User.hashPassword(newPassword);
     user.passwordResetToken = null;
     user.passwordResetTokenExpiry = null;
     await user.save();
