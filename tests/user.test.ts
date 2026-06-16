@@ -199,7 +199,7 @@ test("Request email change", async () => {
     })
     .save();
 
-  const otp = await store.users.requestChangeEmail(user.id);
+  const { otp } = await store.users.requestChangeEmail(user.id);
 
   const updatedUser = await store.users.repository.findOneBy({ id: user.id });
 
@@ -229,7 +229,7 @@ test("Change email", async () => {
     })
     .save();
 
-  const otp = await store.users.requestChangeEmail(user.id);
+  const { otp } = await store.users.requestChangeEmail(user.id);
   const newEmail = faker.internet.email();
   await store.users.changeEmail(user.id, otp, newEmail);
 
