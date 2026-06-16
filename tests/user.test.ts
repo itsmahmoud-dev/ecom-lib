@@ -303,3 +303,66 @@ test("Change password with wrong current password", async () => {
     cause: expect.any(String),
   });
 });
+
+test("Request password reset", async () => {
+  const user = await store.users.repository
+    .create({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: faker.internet.password(),
+    })
+    .save();
+
+  const { token } = await store.users.requestPasswordReset(user.id);
+
+  const updatedUser = await store.users.repository.findOneBy({ id: user.id });
+
+  expect(updatedUser!.passwordResetToken).toBe(token);
+  expect(updatedUser!.passwordResetTokenExpiry).toBeInstanceOf(Date);
+  expect(updatedUser!.passwordResetTokenExpiry!.getTime()).toBeGreaterThan(
+    Date.now(),
+  );
+});
+
+test("Request password reset for a non-existent user", async () => {
+  const result = store.users.requestPasswordReset(-1);
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.UserNotFound,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
+
+test("Reset password", async () => {
+  const user = await store.users.repository
+    .create({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: faker.internet.password(),
+    })
+    .save();
+
+  const { token } = await store.users.requestPasswordReset(user.id);
+  const newPassword = faker.internet.password();
+  await store.users.resetPassword(token, newPassword);
+
+  const updatedUser = await store.users.repository.findOneBy({ id: user.id });
+
+  expect(await updatedUser!.verifyPassword(newPassword)).toBeTrue();
+  expect(updatedUser!.passwordResetToken).toBeNull();
+  expect(updatedUser!.passwordResetTokenExpiry).toBeNull();
+});
+
+test("Reset password with an invalid token", async () => {
+  const result = store.users.resetPassword(
+    "invalid-token",
+    faker.internet.password(),
+  );
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.InvalidResetToken,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});

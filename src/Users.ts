@@ -284,4 +284,54 @@ export class Users<
     user.password = await User.hashPassword(newPassword);
     await user.save();
   }
+
+  /**
+   * Requests a password reset for the user with the specified ID.
+   * @param id The user's ID.
+   * @returns the generated password reset token and user details
+   * @throws if the user is not found
+   */
+  async requestPasswordReset(id: number) {
+    const user = await this.repository.findOne({ where: { id } });
+    if (!user) {
+      throw new OperError({
+        code: UserErrorCodes.UserNotFound,
+        message: "User not found",
+        cause: "The user with the specified ID does not exist",
+      });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    user.passwordResetToken = token;
+    user.passwordResetTokenExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    await user.save();
+
+    return { name: user.name, email: user.email, token };
+  }
+
+  /**
+   * Resets the user's password using the provided reset token and new password.
+   * @param token - The reset token.
+   * @param newPassword - The new password to set.
+   */
+  async resetPassword(token: string, newPassword: string) {
+    const user = await this.repository.findOne({
+      where: {
+        passwordResetToken: token,
+        passwordResetTokenExpiry: MoreThan(new Date()),
+      },
+    });
+    if (!user) {
+      throw new OperError({
+        code: UserErrorCodes.InvalidResetToken,
+        message: "Invalid reset token",
+        cause: "The provided reset token is not valid",
+      });
+    }
+
+    user.password = await User.hashPassword(newPassword);
+    user.passwordResetToken = null;
+    user.passwordResetTokenExpiry = null;
+    await user.save();
+  }
 }
