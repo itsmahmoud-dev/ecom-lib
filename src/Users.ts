@@ -200,7 +200,7 @@ export class Users<
   /**
    * Requests an email change for a user by generating an OTP and saving it to the user's record.
    * @param id user id
-   * @returns the generated OTP
+   * @returns the generated OTP and user details
    * @throws if the user is not found
    */
   async requestChangeEmail(id: number) {
@@ -219,7 +219,7 @@ export class Users<
     user.emailChangeOtpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     await user.save();
 
-    return otp;
+    return { name: user.name, email: user.email, otp };
   }
 
   /**
