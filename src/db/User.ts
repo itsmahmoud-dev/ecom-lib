@@ -53,7 +53,7 @@ export class User extends BaseEntity {
 
   @OneToMany("Address", (address: Address) => address.user, {
     nullable: true,
-    cascade: ["insert", "recover", "remove", "soft-remove", "update"],
+    cascade: ["remove", "soft-remove"],
   })
   addresses?: Address[] | null;
 
