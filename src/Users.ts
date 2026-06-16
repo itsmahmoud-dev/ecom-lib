@@ -255,6 +255,12 @@ export class Users<
     return user;
   }
 
+  /**
+   * Changes the user's password if the old password is correct.
+   * @param id The user's ID.
+   * @param oldPassword The user's current password.
+   * @param newPassword The new password to set.
+   */
   async changePassword(id: number, oldPassword: string, newPassword: string) {
     const user = await this.repository.findOne({ where: { id } });
     if (!user) {
