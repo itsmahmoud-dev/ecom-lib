@@ -227,6 +227,7 @@ export class Users<
    * @param id user id
    * @param otp one-time password
    * @param newEmail new email address
+   * @returns the updated user
    * @throws if the user is not found or the OTP is invalid or expired
    */
   async changeEmail(id: number, otp: string, newEmail: string) {
@@ -250,6 +251,8 @@ export class Users<
     user.emailChangeOtp = null;
     user.emailChangeOtpExpiry = null;
     await user.save();
+
+    return user;
   }
 
   async changePassword(id: number, oldPassword: string, newPassword: string) {
