@@ -24,17 +24,19 @@ export class Facets<
       >(FacetDefination);
   }
 
+  /**
+   * Add a facet.
+   * @param key
+   * @param value
+   * @returns created facet
+   * @throws {OperError} with code F600 if the facet already exists
+   */
   async addFacet(
     key: productFacetKeys[number] | productOptionFacetKeys[number],
     value: string,
   ) {
     try {
-      const facet = new FacetDefination<
-        productFacetKeys | productOptionFacetKeys
-      >();
-      facet.key = key;
-      facet.value = value;
-      return await this.repository.save(facet);
+      return await this.repository.create({ key, value }).save();
     } catch (err) {
       if (err instanceof QueryFailedError && err.driverError.code === "23505") {
         const [key, value] = extractKeyValue(err.driverError.detail);
@@ -51,6 +53,12 @@ export class Facets<
     }
   }
 
+  /**
+   * Remove a facet.
+   * @param key
+   * @param value
+   * @throws {OperError} with code F601 if the facet is not found
+   */
   async removeFacet(
     key: FindOptionsWhereProperty<
       productFacetKeys[number] | productOptionFacetKeys[number]
