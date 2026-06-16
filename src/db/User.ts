@@ -7,6 +7,8 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 import { UserRole, UserStatus } from "../types/user";
+import { OneToMany } from "typeorm/browser";
+import type { Address } from "./Address";
 
 @Entity({ name: "user" })
 export class User extends BaseEntity {
@@ -48,6 +50,13 @@ export class User extends BaseEntity {
 
   @Column({ type: "timestamptz", nullable: true })
   passwordResetTokenExpiry?: Date | null;
+
+  @OneToMany("Address", (address: Address) => address.user, {
+    nullable: true,
+    eager: true,
+    cascade: ["insert", "recover", "remove", "soft-remove", "update"],
+  })
+  addresses?: Address[] | null;
 
   @CreateDateColumn()
   createdAt!: Date;
