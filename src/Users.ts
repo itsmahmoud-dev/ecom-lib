@@ -23,6 +23,37 @@ export class Users<
   }
 
   /**
+   * Retrieves a user by their ID
+   * @param id
+   * @returns user if found, otherwise null
+   */
+  async findByID(id: number) {
+    const user = await this.repository.findOne({
+      where: { id },
+      select: [
+        "id",
+        "name",
+        "email",
+        "phoneNumber",
+        "role",
+        "status",
+        "createdAt",
+        "updatedAt",
+      ],
+    });
+
+    if (!user) {
+      throw new OperError({
+        code: UserErrorCodes.UserNotFound,
+        message: "User not found",
+        cause: "User with specified ID does not exist",
+      });
+    }
+
+    return user;
+  }
+
+  /**
    * Registers a new user with the given name, email, and password.
    * @param name string
    * @param email string
