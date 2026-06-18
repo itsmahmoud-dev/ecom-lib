@@ -153,8 +153,13 @@ test("Get user by id", async () => {
 });
 
 test("Get user that doesn't exist by id", async () => {
-  const userById = await store.users.findByID(-1);
-  expect(userById).toBeNull();
+  const userById = store.users.findByID(-1);
+  expect(userById).rejects.toThrow(OperError);
+  expect(userById).rejects.toMatchObject({
+    code: UserErrorCodes.UserNotFound,
+    message: "User not found",
+    cause: "User with specified ID does not exist",
+  });
 });
 
 test("Change user name", async () => {
