@@ -33,12 +33,15 @@ export class Address extends BaseEntity {
   building!: string;
 
   @Column({ type: "text", nullable: true })
-  floor?: string | null;
+  floor!: string | null;
 
   @ManyToOne("User", (user: User) => user.addresses, {
     onDelete: "CASCADE",
   })
   user!: User;
+
+  @Column({ type: "numeric" })
+  userId!: number;
 
   @CreateDateColumn()
   createdAt!: Date;

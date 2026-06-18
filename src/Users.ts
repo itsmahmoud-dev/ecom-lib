@@ -9,6 +9,7 @@ import { UserStatus } from "./types";
 
 import type { Store } from "./Store";
 import type { Repository } from "typeorm";
+import { Address } from "./db";
 
 export class Users<
   productFacetKeys extends string[] = string[],
@@ -16,10 +17,12 @@ export class Users<
 > {
   store: Store<productFacetKeys, productOptionFacetKeys>;
   repository: Repository<User>;
+  addressRepository: Repository<Address>;
 
   constructor(store: Store<productFacetKeys, productOptionFacetKeys>) {
     this.store = store;
     this.repository = this.store.dataSource.getRepository(User);
+    this.addressRepository = this.store.dataSource.getRepository(Address);
   }
 
   /**
@@ -335,5 +338,40 @@ export class Users<
     user.passwordResetToken = null;
     user.passwordResetTokenExpiry = null;
     await user.save();
+  }
+
+  async addAddress(
+    userId: number,
+    name: string,
+    country: string,
+    state: string,
+    city: string,
+    street: string,
+    building: string,
+    floor?: string,
+  ) {
+    const user = await this.repository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new OperError({
+        code: UserErrorCodes.UserNotFound,
+        message: "User not found",
+        cause: "The user with the specified ID does not exist",
+      });
+    }
+
+    const address = await this.addressRepository
+      .create({
+        userId,
+        name,
+        country,
+        state,
+        city,
+        street,
+        building,
+        floor: floor ?? null,
+      })
+      .save();
+
+    return address;
   }
 }
