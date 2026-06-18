@@ -3,11 +3,11 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
 import { UserRole, UserStatus } from "../types/user";
-import { OneToMany } from "typeorm/browser";
 import type { Address } from "./Address";
 
 @Entity({ name: "user" })

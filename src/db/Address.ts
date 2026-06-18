@@ -4,9 +4,9 @@ import {
   Entity,
   ManyToOne,
   PrimaryGeneratedColumn,
+  Column,
+  UpdateDateColumn,
 } from "typeorm";
-import { UpdateDateColumn } from "typeorm/browser";
-import { Column } from "typeorm/browser";
 import type { User } from "./User";
 
 @Entity({ name: "address" })
