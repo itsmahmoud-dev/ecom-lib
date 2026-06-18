@@ -12,15 +12,15 @@ const testFullName = faker.person.fullName();
 
 test("Regsiter new user with an email", () => {
   const user = expect(
-    store.users.registerUserWithEmail(testFullName, testEmail, testPassword),
+    store.users.registerUser(testFullName, testEmail, testPassword),
   );
 
-  user.resolves.toBeTrue();
+  user.resolves.toBeString();
 });
 
 test("Register a duplicate email", () => {
   const user = expect(
-    store.users.registerUserWithEmail(testFullName, testEmail, testPassword),
+    store.users.registerUser(testFullName, testEmail, testPassword),
   );
   user.rejects.toThrow(OperError);
   user.rejects.toMatchObject({
@@ -35,11 +35,8 @@ test("Activate user", async () => {
 
   expect(user).not.toBeNull();
   expect(user!.activationToken).not.toBeNull();
-  expect(user!.activationToken).not.toBeUndefined();
 
-  const result = expect(store.users.activateUser(user!.activationToken!));
-
-  result.resolves.toBeTrue();
+  expect(store.users.activateUser(user!.activationToken!));
 });
 
 test("Activate user with an expired token", async () => {
@@ -135,7 +132,7 @@ test("Get user by id", async () => {
 
   expect(user).not.toBeNull();
 
-  const userById = await store.users.getUserById(user!.id);
+  const userById = await store.users.findByID(user!.id);
   expect(userById).not.toBeNull();
   expect(userById).toMatchObject({
     id: user!.id,
@@ -156,13 +153,8 @@ test("Get user by id", async () => {
 });
 
 test("Get user that doesn't exist by id", async () => {
-  const userById = store.users.getUserById(-1);
-  expect(userById).rejects.toThrow(OperError);
-  expect(userById).rejects.toMatchObject({
-    code: UserErrorCodes.UserNotFound,
-    message: expect.any(String),
-    cause: expect.any(String),
-  });
+  const userById = await store.users.findByID(-1);
+  expect(userById).toBeNull();
 });
 
 test("Change user name", async () => {
