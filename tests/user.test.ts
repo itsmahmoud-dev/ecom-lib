@@ -358,3 +358,155 @@ test("Reset password with an invalid token", async () => {
     cause: expect.any(String),
   });
 });
+
+test("Add address to user", async () => {
+  const user = await store.users.repository
+    .create({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: faker.internet.password(),
+    })
+    .save();
+
+  const addressData = {
+    name: "Address 1",
+    country: faker.location.country(),
+    state: faker.location.state(),
+    city: faker.location.city(),
+    street: faker.location.street(),
+    building: faker.location.buildingNumber(),
+    floor: "3",
+  };
+
+  const address = await store.users.addAddress(
+    user.id,
+    addressData.name,
+    addressData.country,
+    addressData.state,
+    addressData.city,
+    addressData.street,
+    addressData.building,
+    addressData.floor,
+  );
+
+  expect(address).toMatchObject({
+    id: expect.any(Number),
+    userId: user.id,
+    country: addressData.country,
+    state: addressData.state,
+    city: addressData.city,
+    street: addressData.street,
+    building: addressData.building,
+    floor: addressData.floor,
+  });
+
+  const userWithAddress = await store.users.repository.findOne({
+    where: { id: user.id },
+    relations: { addresses: true },
+  });
+
+  expect(userWithAddress).toBeDefined();
+  expect(userWithAddress!.addresses).toHaveLength(1);
+  expect(userWithAddress!.addresses![0]).toMatchObject({
+    id: expect.any(Number),
+    userId: user.id,
+    name: addressData.name,
+    country: addressData.country,
+    state: addressData.state,
+    city: addressData.city,
+    street: addressData.street,
+    building: addressData.building,
+    floor: addressData.floor,
+  });
+});
+
+test("Add address to a non-existent user", async () => {
+  const result = store.users.addAddress(
+    -1,
+    "Home",
+    faker.location.country(),
+    faker.location.state(),
+    faker.location.city(),
+    faker.location.street(),
+    faker.location.buildingNumber(),
+  );
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.UserNotFound,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
+
+test("Update an existing address", async () => {
+  const user = await store.users.repository
+    .create({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: faker.internet.password(),
+    })
+    .save();
+
+  const address = await store.users.addAddress(
+    user.id,
+    "Home",
+    faker.location.country(),
+    faker.location.state(),
+    faker.location.city(),
+    faker.location.street(),
+    faker.location.buildingNumber(),
+  );
+
+  const updatedData = {
+    name: "Work",
+    country: faker.location.country(),
+    state: faker.location.state(),
+    city: faker.location.city(),
+    street: faker.location.street(),
+    building: faker.location.buildingNumber(),
+    floor: "5",
+  };
+
+  const updated = await store.users.updateAddress(
+    address.id,
+    updatedData.name,
+    updatedData.country,
+    updatedData.state,
+    updatedData.city,
+    updatedData.street,
+    updatedData.building,
+    updatedData.floor,
+  );
+
+  expect(updated).toMatchObject({
+    id: address.id,
+    userId: user.id,
+    name: updatedData.name,
+    country: updatedData.country,
+    state: updatedData.state,
+    city: updatedData.city,
+    street: updatedData.street,
+    building: updatedData.building,
+    floor: updatedData.floor,
+  });
+});
+
+test("Update a non-existent address", async () => {
+  const result = store.users.updateAddress(
+    -1,
+    "Home",
+    faker.location.country(),
+    faker.location.state(),
+    faker.location.city(),
+    faker.location.street(),
+    faker.location.buildingNumber(),
+  );
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.AddressNotFound,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});

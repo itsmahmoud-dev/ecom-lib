@@ -7,6 +7,7 @@ export enum UserErrorCodes {
   EmailChangeOtpInvalidOrExpired = "U605",
   WrongCurrentPassword = "U606",
   InvalidResetToken = "U607",
+  AddressNotFound = "U608",
 }
 
 export enum ProductErrorCodes {

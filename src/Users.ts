@@ -374,4 +374,40 @@ export class Users<
 
     return address;
   }
+
+  async updateAddress(
+    addressId: number,
+    name: string,
+    country: string,
+    state: string,
+    city: string,
+    street: string,
+    building: string,
+    floor?: string,
+  ) {
+    const address = await this.addressRepository.findOne({
+      where: { id: addressId },
+    });
+    if (!address) {
+      throw new OperError({
+        code: UserErrorCodes.AddressNotFound,
+        message: "Address not found",
+        cause: "The address with the specified ID does not exist",
+      });
+    }
+
+    Object.assign(address, {
+      name,
+      country,
+      state,
+      city,
+      street,
+      building,
+      floor: floor ?? null,
+    });
+
+    await address.save();
+
+    return address;
+  }
 }
