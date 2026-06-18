@@ -2,7 +2,7 @@ import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { EventEmitter } from "node:events";
 
-import { FacetDefination, Product, ProductOption, User } from "./db";
+import { Address, FacetDefination, Product, ProductOption, User } from "./db";
 import { Products } from "./Products";
 import { Users } from "./Users";
 import { Facets } from "./Facets";
@@ -57,7 +57,7 @@ export class Store<
       username: props.db.USER,
       password: props.db.PASS,
       database: props.db.NAME,
-      entities: [Product, ProductOption, FacetDefination, User],
+      entities: [Product, ProductOption, FacetDefination, User, Address],
       synchronize: true,
       logging: false,
     });
