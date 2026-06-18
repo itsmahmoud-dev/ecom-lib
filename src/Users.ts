@@ -340,6 +340,19 @@ export class Users<
     await user.save();
   }
 
+  /**
+   * Adds a new address for the user.
+   * @param userId number
+   * @param name string
+   * @param country string
+   * @param state string
+   * @param city string
+   * @param street string
+   * @param building string
+   * @param floor string?
+   * @returns new address
+   * @throws {OperError} with code U604 if the user is not found
+   */
   async addAddress(
     userId: number,
     name: string,
@@ -375,6 +388,19 @@ export class Users<
     return address;
   }
 
+  /**
+   * Updates an existing address for the user.
+   * @param addressId number
+   * @param name string
+   * @param country string
+   * @param state string
+   * @param city string
+   * @param street string
+   * @param building string
+   * @param floor string?
+   * @returns updated address
+   * @throws {OperError} with code U608 if the address is not found
+   */
   async updateAddress(
     addressId: number,
     name: string,
@@ -411,6 +437,11 @@ export class Users<
     return address;
   }
 
+  /**
+   * Removes an address for the user.
+   * @param addressId number
+   * @throws {OperError} with code U608 if the address is not found
+   */
   async removeAddress(addressId: number) {
     const address = await this.addressRepository.findOne({
       where: { id: addressId },
