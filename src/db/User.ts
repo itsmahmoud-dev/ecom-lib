@@ -74,25 +74,4 @@ export class User extends BaseEntity {
       timeCost: 3,
     });
   }
-
-  /**
-   * Retrieves a user by their ID
-   * @param id
-   * @returns user if found, otherwise null
-   */
-  async findByID(id: number) {
-    return await User.findOne({
-      where: { id },
-      select: [
-        "id",
-        "name",
-        "email",
-        "phoneNumber",
-        "role",
-        "status",
-        "createdAt",
-        "updatedAt",
-      ],
-    });
-  }
 }
