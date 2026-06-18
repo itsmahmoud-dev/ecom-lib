@@ -515,3 +515,41 @@ test("Update a non-existent address", async () => {
     cause: expect.any(String),
   });
 });
+
+test("Delete an existing address", async () => {
+  const user = await store.users.repository
+    .create({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: faker.internet.password(),
+    })
+    .save();
+
+  const address = await store.users.addAddress(
+    user.id,
+    "Home",
+    faker.location.country(),
+    faker.location.state(),
+    faker.location.city(),
+    faker.location.street(),
+    faker.location.buildingNumber(),
+  );
+
+  await store.users.removeAddress(address.id);
+
+  const deleted = await store.users.addressRepository.findOne({
+    where: { id: address.id },
+  });
+  expect(deleted).toBeNull();
+});
+
+test("Delete a non-existent address", async () => {
+  const result = store.users.removeAddress(-1);
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.AddressNotFound,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});

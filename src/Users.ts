@@ -410,4 +410,19 @@ export class Users<
 
     return address;
   }
+
+  async removeAddress(addressId: number) {
+    const address = await this.addressRepository.findOne({
+      where: { id: addressId },
+    });
+    if (!address) {
+      throw new OperError({
+        code: UserErrorCodes.AddressNotFound,
+        message: "Address not found",
+        cause: "The address with the specified ID does not exist",
+      });
+    }
+
+    await address.remove();
+  }
 }
