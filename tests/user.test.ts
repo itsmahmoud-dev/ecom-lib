@@ -262,7 +262,7 @@ test("Change password", async () => {
     .create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
-      password: await User.hashPassword(password),
+      password: User.hashPassword(password),
     })
     .save();
 
@@ -270,7 +270,7 @@ test("Change password", async () => {
   await store.users.changePassword(user.id, password, newPassword);
 
   const updatedUser = await store.users.repository.findOneBy({ id: user.id });
-  expect(await updatedUser!.verifyPassword(newPassword)).toBeTrue();
+  expect(updatedUser!.verifyPassword(newPassword)).toBeTrue();
 });
 
 test("Change password with wrong current password", async () => {
@@ -278,7 +278,7 @@ test("Change password with wrong current password", async () => {
     .create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
-      password: await User.hashPassword(faker.internet.password()),
+      password: User.hashPassword(faker.internet.password()),
     })
     .save();
 
@@ -341,7 +341,7 @@ test("Reset password", async () => {
 
   const updatedUser = await store.users.repository.findOneBy({ id: user.id });
 
-  expect(await updatedUser!.verifyPassword(newPassword)).toBeTrue();
+  expect(updatedUser!.verifyPassword(newPassword)).toBeTrue();
   expect(updatedUser!.passwordResetToken).toBeNull();
   expect(updatedUser!.passwordResetTokenExpiry).toBeNull();
 });
