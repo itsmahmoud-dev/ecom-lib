@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { faker } from "@faker-js/faker";
 import { store } from ".";
-import { ProductStatus, type UpdateProductParams } from "../src/types";
+import { ProductStatus } from "../src/types";
 import { Product } from "../src/db";
 import { readdirSync } from "fs";
 import { OperError } from "../src/lib/OperError";
