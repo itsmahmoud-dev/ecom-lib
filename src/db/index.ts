@@ -1,5 +1,5 @@
 export * from "./Product";
-export * from "./ProductOption";
+export * from "./ProductVariant";
 export * from "./User";
 export * from "./FacetDefinations";
 export * from "./Address";

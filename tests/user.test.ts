@@ -40,15 +40,15 @@ test("Activate user", async () => {
 });
 
 test("Activate user with an expired token", async () => {
-  const user = await store.users.repository
-    .create({
-      name: faker.person.fullName(),
-      email: faker.internet.email(),
-      password: faker.internet.password(),
-      activationToken: "1234",
-      activationTokenExpiry: new Date(Date.now() - 10 * 60 * 1000),
-    })
-    .save();
+  const user = store.users.repository.create({
+    name: faker.person.fullName(),
+    email: faker.internet.email(),
+    password: faker.internet.password(),
+    activationToken: "1234",
+    activationTokenExpiry: new Date(Date.now() - 10 * 60 * 1000),
+  });
+
+  await store.users.repository.save(user);
 
   expect(user).not.toBeNull();
   expect(user!.activationToken).not.toBeNull();
@@ -107,13 +107,13 @@ test("Log user in with a wrong password", async () => {
 
 test("Log in a pending user", async () => {
   const testPassword2 = faker.internet.password();
-  const user = await store.users.repository
-    .create({
+  const user = await store.users.repository.save(
+    store.users.repository.create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: testPassword2,
-    })
-    .save();
+    }),
+  );
 
   expect(user).not.toBeNull();
 
@@ -163,13 +163,13 @@ test("Get user that doesn't exist by id", async () => {
 });
 
 test("Change user name", async () => {
-  const user = await store.users.repository
-    .create({
+  const user = await store.users.repository.save(
+    store.users.repository.create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: faker.internet.password(),
-    })
-    .save();
+    }),
+  );
 
   const newName = faker.person.fullName();
   const updatedUser = await store.users.changeName(user.id, newName);
@@ -188,13 +188,13 @@ test("Change name of a non-existent user", async () => {
 });
 
 test("Request email change", async () => {
-  const user = await store.users.repository
-    .create({
+  const user = await store.users.repository.save(
+    store.users.repository.create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: faker.internet.password(),
-    })
-    .save();
+    }),
+  );
 
   const { otp } = await store.users.requestChangeEmail(user.id);
 
@@ -218,13 +218,13 @@ test("Request email change for a non-existent user", async () => {
 });
 
 test("Change email", async () => {
-  const user = await store.users.repository
-    .create({
+  const user = await store.users.repository.save(
+    store.users.repository.create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: faker.internet.password(),
-    })
-    .save();
+    }),
+  );
 
   const { otp } = await store.users.requestChangeEmail(user.id);
   const newEmail = faker.internet.email();
@@ -238,13 +238,13 @@ test("Change email", async () => {
 });
 
 test("Change email with wrong OTP", async () => {
-  const user = await store.users.repository
-    .create({
+  const user = await store.users.repository.save(
+    store.users.repository.create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: faker.internet.password(),
-    })
-    .save();
+    }),
+  );
 
   await store.users.requestChangeEmail(user.id);
   const result = store.users.changeEmail(
@@ -263,13 +263,13 @@ test("Change email with wrong OTP", async () => {
 
 test("Change password", async () => {
   const password = faker.internet.password();
-  const user = await store.users.repository
-    .create({
+  const user = await store.users.repository.save(
+    store.users.repository.create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: User.hashPassword(password),
-    })
-    .save();
+    }),
+  );
 
   const newPassword = faker.internet.password();
   await store.users.changePassword(user.id, password, newPassword);
@@ -279,13 +279,13 @@ test("Change password", async () => {
 });
 
 test("Change password with wrong current password", async () => {
-  const user = await store.users.repository
-    .create({
+  const user = await store.users.repository.save(
+    store.users.repository.create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: User.hashPassword(faker.internet.password()),
-    })
-    .save();
+    }),
+  );
 
   const result = store.users.changePassword(
     user.id,
@@ -302,13 +302,13 @@ test("Change password with wrong current password", async () => {
 });
 
 test("Request password reset", async () => {
-  const user = await store.users.repository
-    .create({
+  const user = await store.users.repository.save(
+    store.users.repository.create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: faker.internet.password(),
-    })
-    .save();
+    }),
+  );
 
   const { token } = await store.users.requestPasswordReset(user.id);
 
@@ -332,13 +332,13 @@ test("Request password reset for a non-existent user", async () => {
 });
 
 test("Reset password", async () => {
-  const user = await store.users.repository
-    .create({
+  const user = await store.users.repository.save(
+    store.users.repository.create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: faker.internet.password(),
-    })
-    .save();
+    }),
+  );
 
   const { token } = await store.users.requestPasswordReset(user.id);
   const newPassword = faker.internet.password();
@@ -365,13 +365,13 @@ test("Reset password with an invalid token", async () => {
 });
 
 test("Add address to user", async () => {
-  const user = await store.users.repository
-    .create({
+  const user = await store.users.repository.save(
+    store.users.repository.create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: faker.internet.password(),
-    })
-    .save();
+    }),
+  );
 
   const addressData = {
     name: "Address 1",
@@ -445,13 +445,13 @@ test("Add address to a non-existent user", async () => {
 });
 
 test("Update an existing address", async () => {
-  const user = await store.users.repository
-    .create({
+  const user = await store.users.repository.save(
+    store.users.repository.create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: faker.internet.password(),
-    })
-    .save();
+    }),
+  );
 
   const address = await store.users.addAddress(
     user.id,
@@ -517,13 +517,13 @@ test("Update a non-existent address", async () => {
 });
 
 test("Delete an existing address", async () => {
-  const user = await store.users.repository
-    .create({
+  const user = await store.users.repository.save(
+    store.users.repository.create({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: faker.internet.password(),
-    })
-    .save();
+    }),
+  );
 
   const address = await store.users.addAddress(
     user.id,

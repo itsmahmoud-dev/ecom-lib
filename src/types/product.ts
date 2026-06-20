@@ -5,37 +5,31 @@ export enum ProductStatus {
 
 // -------------------------------------------------------------
 
-export type CreateProductParams<
-  productAttributes extends string[] = string[],
-  productOptionAttributes extends string[] = string[],
-> = {
+export type CreateProductParams = {
   name: string;
-  barcode?: string;
+  barcode: string | null;
   status: ProductStatus;
   description: string;
-  attributes: Record<productAttributes[number], string>;
-  options: {
-    attributes: Record<productOptionAttributes[number], string>;
+  attributes: Record<string, unknown>;
+  variants: {
+    attributes: Record<string, unknown>;
     price: number;
     discount: number;
     images: File[];
   }[];
 };
 
-export type UpdateProductParams<
-  productAttributes extends string[] = string[],
-  productOptionAttributes extends string[] = string[],
-> = {
+export type UpdateProductParams = {
   id: number;
   name?: string;
   barcode?: string | null;
   status?: ProductStatus;
   description?: string;
-  attributes?: Record<productAttributes[number], string>;
-  options?: {
+  attributes?: Record<string, unknown>;
+  variants?: {
     id: number;
     dirty?: boolean;
-    attributes: Record<productOptionAttributes[number], string>;
+    attributes: Record<string, unknown>;
     price: number;
     discount: number;
     imagesData: {

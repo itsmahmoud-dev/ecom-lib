@@ -2,15 +2,12 @@ import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { EventEmitter } from "node:events";
 
-import { Address, FacetDefination, Product, ProductOption, User } from "./db";
+import { Address, FacetDefination, Product, ProductVariant, User } from "./db";
 import { Products } from "./Products";
 import { Users } from "./Users";
 import { Facets } from "./Facets";
 
-type StoreProps<
-  productFacetKeys extends string[] = string[],
-  productOptionFacetKeys extends string[] = string[],
-> = {
+type StoreParams = {
   name: string;
   dataPath: string;
   db: {
@@ -21,43 +18,34 @@ type StoreProps<
     HOST: string;
   };
   JWT_SECRET: string;
-  productFacetKeys: productFacetKeys;
-  productOptionFacetKeys: productOptionFacetKeys;
 };
 
-export class Store<
-  productFacetKeys extends string[] = string[],
-  productOptionFacetKeys extends string[] = string[],
-> {
+export class Store {
   name: string;
   dataSource: DataSource;
   dataPath: string;
   JWT_SECRET: string;
-  readonly productFacetKeys: productFacetKeys;
-  readonly productOptionFacetKeys: productOptionFacetKeys;
 
   // Repositories
-  users: Users<productFacetKeys, productOptionFacetKeys>;
-  products: Products<productFacetKeys, productOptionFacetKeys>;
-  facets: Facets<productFacetKeys, productOptionFacetKeys>;
+  users: Users;
+  products: Products;
+  facets: Facets;
 
   emitter = new EventEmitter();
 
-  constructor(props: StoreProps<productFacetKeys, productOptionFacetKeys>) {
-    this.name = props.name;
-    this.dataPath = props.dataPath;
-    this.JWT_SECRET = props.JWT_SECRET;
-    this.productFacetKeys = props.productFacetKeys;
-    this.productOptionFacetKeys = props.productOptionFacetKeys;
+  constructor(params: StoreParams) {
+    this.name = params.name;
+    this.dataPath = params.dataPath;
+    this.JWT_SECRET = params.JWT_SECRET;
 
     this.dataSource = new DataSource({
       type: "postgres",
-      host: props.db.HOST,
-      port: props.db.PORT,
-      username: props.db.USER,
-      password: props.db.PASS,
-      database: props.db.NAME,
-      entities: [Product, ProductOption, FacetDefination, User, Address],
+      host: params.db.HOST,
+      port: params.db.PORT,
+      username: params.db.USER,
+      password: params.db.PASS,
+      database: params.db.NAME,
+      entities: [Product, ProductVariant, FacetDefination, User, Address],
       synchronize: true,
       logging: false,
     });

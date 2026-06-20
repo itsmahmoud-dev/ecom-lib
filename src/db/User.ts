@@ -1,5 +1,4 @@
 import {
-  BaseEntity,
   Column,
   CreateDateColumn,
   Entity,
@@ -11,18 +10,18 @@ import { UserRole, UserStatus } from "../types/user";
 import type { Address } from "./Address";
 
 @Entity({ name: "user" })
-export class User extends BaseEntity {
+export class User {
   @PrimaryGeneratedColumn()
   id!: number;
 
   @Column({ type: "text" })
   name!: string;
 
-  @Column({ type: "text", unique: true, nullable: true })
-  email?: string | null;
+  @Column({ type: "text", unique: true })
+  email!: string;
 
   @Column({ type: "text", unique: true, nullable: true })
-  phoneNumber?: string | null;
+  phoneNumber!: string | null;
 
   @Column({ type: "text" })
   password!: string;
@@ -34,28 +33,28 @@ export class User extends BaseEntity {
   status!: UserStatus;
 
   @Column({ type: "text", nullable: true })
-  activationToken?: string | null;
+  activationToken!: string | null;
 
   @Column({ type: "timestamptz", nullable: true })
-  activationTokenExpiry?: Date | null;
+  activationTokenExpiry!: Date | null;
 
   @Column({ type: "text", nullable: true })
-  emailChangeOtp?: string | null;
+  emailChangeOtp!: string | null;
 
   @Column({ type: "timestamptz", nullable: true })
-  emailChangeOtpExpiry?: Date | null;
+  emailChangeOtpExpiry!: Date | null;
 
   @Column({ type: "text", nullable: true })
-  passwordResetToken?: string | null;
+  passwordResetToken!: string | null;
 
   @Column({ type: "timestamptz", nullable: true })
-  passwordResetTokenExpiry?: Date | null;
+  passwordResetTokenExpiry!: Date | null;
 
   @OneToMany("Address", (address: Address) => address.user, {
     nullable: true,
     cascade: ["remove", "soft-remove"],
   })
-  addresses?: Address[] | null;
+  addresses!: Address[] | null;
 
   @CreateDateColumn()
   createdAt!: Date;

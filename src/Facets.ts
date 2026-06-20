@@ -5,23 +5,15 @@ import { extractKeyValue } from "./lib/string";
 import { FacetErrorCodes } from "./types/error";
 
 import type { Store } from "./Store";
-import type { Repository, FindOptionsWhereProperty } from "typeorm";
+import type { Repository } from "typeorm";
 
-export class Facets<
-  productFacetKeys extends string[] = string[],
-  productOptionFacetKeys extends string[] = string[],
-> {
-  repository: Repository<
-    FacetDefination<productFacetKeys | productOptionFacetKeys>
-  >;
-  store: Store<productFacetKeys, productOptionFacetKeys>;
+export class Facets {
+  repository: Repository<FacetDefination>;
+  store: Store;
 
-  constructor(store: Store<productFacetKeys, productOptionFacetKeys>) {
+  constructor(store: Store) {
     this.store = store;
-    this.repository =
-      store.dataSource.getRepository<
-        FacetDefination<productFacetKeys | productOptionFacetKeys>
-      >(FacetDefination);
+    this.repository = store.dataSource.getRepository(FacetDefination);
   }
 
   /**
@@ -31,12 +23,11 @@ export class Facets<
    * @returns created facet
    * @throws {OperError} with code F600 if the facet already exists
    */
-  async addFacet(
-    key: productFacetKeys[number] | productOptionFacetKeys[number],
-    value: string,
-  ) {
+  async addFacet(key: string, value: string) {
     try {
-      return await this.repository.create({ key, value }).save();
+      const facet = this.repository.create({ key, value });
+      await this.repository.save(facet);
+      return facet;
     } catch (err) {
       if (err instanceof QueryFailedError && err.driverError.code === "23505") {
         const [key, value] = extractKeyValue(err.driverError.detail);
@@ -59,12 +50,7 @@ export class Facets<
    * @param value
    * @throws {OperError} with code F601 if the facet is not found
    */
-  async removeFacet(
-    key: FindOptionsWhereProperty<
-      productFacetKeys[number] | productOptionFacetKeys[number]
-    >,
-    value: string,
-  ) {
+  async removeFacet(key: string, value: string) {
     const facet = await this.repository.findOne({ where: { key, value } });
     if (!facet) {
       throw new OperError({
@@ -75,6 +61,6 @@ export class Facets<
         value,
       });
     }
-    await facet.remove();
+    await this.repository.remove(facet);
   }
 }

@@ -1,6 +1,5 @@
 import {
   Entity,
-  BaseEntity,
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
@@ -8,13 +7,10 @@ import {
   OneToMany,
 } from "typeorm";
 import { ProductStatus } from "../types/product";
-import type { ProductOption } from "./ProductOption";
+import type { ProductVariant } from "./ProductVariant";
 
 @Entity({ name: "product" })
-export class Product<
-  attributes extends string[] = string[],
-  optionAttributes extends string[] = string[],
-> extends BaseEntity {
+export class Product {
   @PrimaryGeneratedColumn()
   id!: number;
 
@@ -22,7 +18,7 @@ export class Product<
   name!: string;
 
   @Column({ type: "text", unique: true, nullable: true })
-  barcode?: string | null;
+  barcode!: string | null;
 
   @Column({ type: "enum", enum: ProductStatus, default: ProductStatus.PENDING })
   status!: ProductStatus;
@@ -31,35 +27,17 @@ export class Product<
   description!: string;
 
   @Column({ type: "jsonb" })
-  attributes!: Record<attributes[number], any>;
+  attributes!: Record<string, unknown>;
 
-  @OneToMany("ProductOption", (o: ProductOption) => o.product, {
+  @OneToMany("ProductVariant", (o: ProductVariant) => o.product, {
     eager: true,
     cascade: ["insert", "recover", "remove", "soft-remove", "update"],
   })
-  options!: ProductOption<optionAttributes>[];
+  variants!: ProductVariant[];
 
   @CreateDateColumn()
   createdAt!: Date;
 
   @UpdateDateColumn()
   updatedAt!: Date;
-
-  /**
-   * Retrieves a product by its ID.
-   * @param id The ID of the product.
-   * @returns The product with the specified ID, or null if not found.
-   */
-  static findByID(id: number) {
-    return Product.findOne({ where: { id } });
-  }
-
-  /**
-   * Retrieves a product by its barcode.
-   * @param barcode The barcode of the product.
-   * @returns The product with the specified barcode, or null if not found.
-   */
-  static findByBarcode(barcode: string) {
-    return Product.findOne({ where: { barcode } });
-  }
 }

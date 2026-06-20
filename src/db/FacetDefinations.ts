@@ -1,5 +1,4 @@
 import {
-  BaseEntity,
   Column,
   CreateDateColumn,
   Entity,
@@ -9,14 +8,12 @@ import {
 
 @Entity({ name: "facet_defination" })
 @Unique("key value pair", ["key", "value"])
-export class FacetDefination<
-  keys extends string[] = string[],
-> extends BaseEntity {
+export class FacetDefination {
   @PrimaryGeneratedColumn()
   id!: number;
 
   @Column({ type: "text" })
-  key!: keys[number];
+  key!: string;
 
   @Column({ type: "text" })
   value!: string;

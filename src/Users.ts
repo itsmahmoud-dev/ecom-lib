@@ -11,15 +11,12 @@ import type { Store } from "./Store";
 import type { Repository } from "typeorm";
 import { Address } from "./db";
 
-export class Users<
-  productFacetKeys extends string[] = string[],
-  productOptionFacetKeys extends string[] = string[],
-> {
-  store: Store<productFacetKeys, productOptionFacetKeys>;
+export class Users {
+  store: Store;
   repository: Repository<User>;
   addressRepository: Repository<Address>;
 
-  constructor(store: Store<productFacetKeys, productOptionFacetKeys>) {
+  constructor(store: Store) {
     this.store = store;
     this.repository = this.store.dataSource.getRepository(User);
     this.addressRepository = this.store.dataSource.getRepository(Address);
@@ -68,15 +65,15 @@ export class Users<
     try {
       const token = crypto.randomBytes(32).toString("hex");
 
-      await this.repository
-        .create({
-          name: name,
-          email: email,
-          password: User.hashPassword(password),
-          activationToken: token,
-          activationTokenExpiry: new Date(Date.now() + 10 * 60 * 1000),
-        })
-        .save();
+      const user = this.repository.create({
+        name: name,
+        email: email,
+        password: User.hashPassword(password),
+        activationToken: token,
+        activationTokenExpiry: new Date(Date.now() + 10 * 60 * 1000),
+      });
+
+      await this.repository.save(user);
 
       return token;
     } catch (err) {
@@ -117,7 +114,7 @@ export class Users<
     user.status = UserStatus.ACTIVE;
     user.activationToken = null;
     user.activationTokenExpiry = null;
-    await user.save();
+    await this.repository.save(user);
   }
 
   /**
@@ -195,7 +192,8 @@ export class Users<
       });
     }
     user.name = name;
-    await user.save();
+    await this.repository.save(user);
+
     return user;
   }
 
@@ -219,7 +217,7 @@ export class Users<
 
     user.emailChangeOtp = otp;
     user.emailChangeOtpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-    await user.save();
+    await this.repository.save(user);
 
     return { name: user.name, email: user.email, otp };
   }
@@ -252,7 +250,7 @@ export class Users<
     user.email = newEmail;
     user.emailChangeOtp = null;
     user.emailChangeOtpExpiry = null;
-    await user.save();
+    await this.repository.save(user);
 
     return user;
   }
@@ -286,7 +284,7 @@ export class Users<
     }
 
     user.password = User.hashPassword(newPassword);
-    await user.save();
+    await this.repository.save(user);
   }
 
   /**
@@ -308,7 +306,7 @@ export class Users<
     const token = crypto.randomBytes(32).toString("hex");
     user.passwordResetToken = token;
     user.passwordResetTokenExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-    await user.save();
+    await this.repository.save(user);
 
     return { name: user.name, email: user.email, token };
   }
@@ -337,7 +335,7 @@ export class Users<
     user.password = User.hashPassword(newPassword);
     user.passwordResetToken = null;
     user.passwordResetTokenExpiry = null;
-    await user.save();
+    await this.repository.save(user);
   }
 
   /**
@@ -372,18 +370,18 @@ export class Users<
       });
     }
 
-    const address = await this.addressRepository
-      .create({
-        userId,
-        name,
-        country,
-        state,
-        city,
-        street,
-        building,
-        floor: floor ?? null,
-      })
-      .save();
+    const address = this.addressRepository.create({
+      userId,
+      name,
+      country,
+      state,
+      city,
+      street,
+      building,
+      floor: floor ?? null,
+    });
+
+    await this.addressRepository.save(address);
 
     return address;
   }
@@ -432,7 +430,7 @@ export class Users<
       floor: floor ?? null,
     });
 
-    await address.save();
+    await this.addressRepository.save(address);
 
     return address;
   }
@@ -454,6 +452,6 @@ export class Users<
       });
     }
 
-    await address.remove();
+    await this.addressRepository.remove(address);
   }
 }

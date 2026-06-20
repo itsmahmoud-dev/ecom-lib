@@ -17,7 +17,7 @@ test("Create a product", async () => {
       gender: "unisex",
     },
     status: ProductStatus.PENDING,
-    options: [
+    variants: [
       {
         price: Number(faker.commerce.price()),
         discount: 0,
@@ -51,8 +51,8 @@ test("Create a product", async () => {
 
   expect(product).toBeDefined();
   expect(product).toBeInstanceOf(Product);
-  expect(product!.options).toBeArray();
-  product!.options.forEach((o) => {
+  expect(product!.variants).toBeArray();
+  product!.variants.forEach((o) => {
     expect(o.price).toBePositive();
   });
   expect(
@@ -72,7 +72,7 @@ test("Create a product with a duplicate barcode", async () => {
       category: faker.word.adjective(),
       gender: "unisex",
     },
-    options: [
+    variants: [
       {
         price: Number(faker.commerce.price()),
         discount: 0,
@@ -112,13 +112,15 @@ test("Update a product", async () => {
     barcode: faker.number.bigInt().toString(),
     status: ProductStatus.ACTIVE,
     description: faker.commerce.productDescription(),
+    kind: "clothing" as const,
     attributes: {
-      gender: "unisex",
+      gender: "unisex" as const,
+      category: "pants",
     },
-    imagesToDelete: [product?.options[0]?.images[0]!],
-    options: [
+    imagesToDelete: [product?.variants[0]?.images[0]!],
+    variants: [
       {
-        ...product?.options[0]!,
+        ...product?.variants[0]!,
         dirty: true,
         imagesData: [
           {
@@ -133,7 +135,7 @@ test("Update a product", async () => {
             ),
           },
           {
-            fileName: product?.options[0]?.images[1]!,
+            fileName: product?.variants[0]?.images[1]!,
           },
         ],
       },
@@ -147,7 +149,7 @@ test("Update a product", async () => {
     status: newFields.status,
     description: newFields.description,
     attributes: newFields.attributes,
-    options: newFields.options,
+    variants: newFields.variants,
     imagesToDelete: newFields.imagesToDelete,
   });
 
@@ -158,16 +160,16 @@ test("Update a product", async () => {
   expect(updatedProduct.status).toBe(newFields.status);
   expect(updatedProduct.description).toBe(newFields.description);
   expect(updatedProduct.attributes).toMatchObject(newFields.attributes);
-  expect(updatedProduct.options).toHaveLength(newFields.options.length);
+  expect(updatedProduct.variants).toHaveLength(newFields.variants.length);
 
   // make sure that the original image has been deleted
   expect(readdirSync(`${store.dataPath}/images/products/`)).not.toContain(
-    product?.options[0]?.images[0],
+    product?.variants[0]?.images[0],
   );
 
   // make sure that the new image have been added
   expect(readdirSync(`${store.dataPath}/images/products/`)).toContain(
-    updatedProduct?.options[0]?.images[0]!,
+    updatedProduct?.variants[0]?.images[0]!,
   );
 });
 

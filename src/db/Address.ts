@@ -1,5 +1,4 @@
 import {
-  BaseEntity,
   CreateDateColumn,
   Entity,
   ManyToOne,
@@ -10,7 +9,7 @@ import {
 import type { User } from "./User";
 
 @Entity({ name: "address" })
-export class Address extends BaseEntity {
+export class Address {
   @PrimaryGeneratedColumn()
   id!: number;
 

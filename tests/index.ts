@@ -13,8 +13,6 @@ export const store = new Store({
     HOST: "localhost",
   },
   JWT_SECRET: "1234",
-  productFacetKeys: ["category", "gender"] as const,
-  productOptionFacetKeys: ["color", "size"] as const,
 });
 
 await store.initializeDatabase();
