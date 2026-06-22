@@ -2,16 +2,16 @@ type args = {
   message: string;
   code: string;
   cause?: string;
-  key?: string;
-  value?: string;
+  key?: string | string[];
+  value?: string | string[];
 };
 
 export class OperError extends Error {
   code: string;
   override message: string;
   override cause?: string;
-  key?: string;
-  value?: string;
+  key?: string | string[];
+  value?: string | string[];
 
   constructor({ cause, code, message, key, value }: args) {
     super();

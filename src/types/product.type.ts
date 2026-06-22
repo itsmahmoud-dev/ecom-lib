@@ -1,14 +1,7 @@
-export enum ProductStatus {
-  ACTIVE = "active",
-  PENDING = "pending",
-}
-
-// -------------------------------------------------------------
-
 export type CreateProductParams = {
   name: string;
   barcode: string | null;
-  status: ProductStatus;
+  status: "active" | "pending";
   description: string;
   attributes: Record<string, unknown>;
   variants: {
@@ -23,7 +16,7 @@ export type UpdateProductParams = {
   id: number;
   name?: string;
   barcode?: string | null;
-  status?: ProductStatus;
+  status?: "active" | "pending";
   description?: string;
   attributes?: Record<string, unknown>;
   variants?: {

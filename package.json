@@ -14,17 +14,19 @@
   },
   "devDependencies": {
     "@faker-js/faker": "^10.4.0",
+    "@types/bun": "latest",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/bun": "latest"
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.2",
     "jsonwebtoken": "^9.0.3",
-    "pg": "^8.20.0",
-    "reflect-metadata": "^0.2.2",
-    "sharp": "^0.34.5",
-    "typeorm": "^0.3.29"
+    "pg": "^8.22.0",
+    "picocolors": "^1.1.1",
+    "sharp": "^0.34.5"
   }
 }

@@ -1,52 +1,51 @@
-import { MoreThan, QueryFailedError } from "typeorm";
 import crypto from "crypto";
-import { sign } from "jsonwebtoken";
 
-import { User } from "./db/User";
 import { OperError } from "./lib/OperError";
-import { UserErrorCodes } from "./types/error";
-import { UserStatus } from "./types";
-
 import type { Store } from "./Store";
-import type { Repository } from "typeorm";
-import { Address } from "./db";
+import { logMessage, UserErrorCodes } from "./lib/errors";
+import { hashPassword, users } from "./models";
+import { handleError } from "./lib/errors";
+import { eq } from "drizzle-orm";
 
 export class Users {
   store: Store;
-  repository: Repository<User>;
-  addressRepository: Repository<Address>;
 
   constructor(store: Store) {
     this.store = store;
-    this.repository = this.store.dataSource.getRepository(User);
-    this.addressRepository = this.store.dataSource.getRepository(Address);
   }
 
   /**
    * Retrieves a user by their ID
-   * @param id
+   * @param id uuid
    * @returns user if found, otherwise null
    */
-  async findByID(id: number) {
-    const user = await this.repository.findOne({
-      where: { id },
-      select: [
-        "id",
-        "name",
-        "email",
-        "phoneNumber",
-        "role",
-        "status",
-        "createdAt",
-        "updatedAt",
-      ],
+  async findByID(id: string) {
+    const user = await this.store.db.query.users.findFirst({
+      columns: {
+        id: true,
+        name: true,
+        email: true,
+        phoneNumber: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      where: (user, { eq }) => eq(user.id, id),
     });
 
     if (!user) {
+      logMessage(
+        "info",
+        `Looking for user with id (${id}) failed becuase they are not found.`,
+      );
+
       throw new OperError({
         code: UserErrorCodes.UserNotFound,
         message: "User not found",
-        cause: "User with specified ID does not exist",
+        cause: `A user with id (${id}) does not exist in database`,
+        key: "id",
+        value: id,
       });
     }
 
@@ -63,58 +62,83 @@ export class Users {
    */
   async registerUser(name: string, email: string, password: string) {
     try {
-      const token = crypto.randomBytes(32).toString("hex");
+      const token = crypto.randomBytes(32).toHex();
 
-      const user = this.repository.create({
-        name: name,
-        email: email,
-        password: User.hashPassword(password),
-        activationToken: token,
-        activationTokenExpiry: new Date(Date.now() + 10 * 60 * 1000),
-      });
-
-      await this.repository.save(user);
-
-      return token;
-    } catch (err) {
-      if (err instanceof QueryFailedError && err.driverError.code === "23505") {
-        throw new OperError({
-          code: UserErrorCodes.EmailAlreadyRegistered,
-          message: "Email is already registered",
-          cause:
-            "User is trying to create a new account with an email registered for another account",
+      const [user] = await this.store.db
+        .insert(users)
+        .values({
+          name,
+          email,
+          password: hashPassword(password),
+          verificationToken: token,
+          verificationTokenExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        })
+        .returning({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          verificationToken: users.verificationToken,
+          verificationTokenExpiresAt: users.verificationTokenExpiresAt,
         });
-      }
-      throw err;
+
+      return user;
+    } catch (e) {
+      handleError(e);
     }
   }
 
   /**
-   * Activates a user account using the provided activation token.
+   * verifies a user account using the provided verification token.
    * @param token string
    * @throws {OperError} with code U600 if the token is invalid or expired
    */
-  async activateUser(token: string) {
-    const user = await this.repository.findOne({
-      where: {
-        activationToken: token,
-        activationTokenExpiry: MoreThan(new Date()),
-      },
+  async verifyUser(token: string) {
+    const user = await this.store.db.query.users.findFirst({
+      where: (user, { eq }) => eq(user.verificationToken, token),
     });
 
     if (!user) {
+      logMessage(
+        "warn",
+        `Attempt to verify user with token (${token}) failed, becuase the user with this verification token doesn't exist.`,
+      );
+
       throw new OperError({
         code: UserErrorCodes.TokenInvalidOrExpired,
-        message: "Invalid or expired token",
-        cause:
-          "Token has expired (passed the 10 minutes mark) or does not exist in the database.",
+        message: "Verification invalid or expired",
+        cause: "Token is invalid",
       });
     }
 
-    user.status = UserStatus.ACTIVE;
-    user.activationToken = null;
-    user.activationTokenExpiry = null;
-    await this.repository.save(user);
+    if (
+      user?.verificationTokenExpiresAt &&
+      user.verificationTokenExpiresAt < new Date()
+    ) {
+      await this.store.db
+        .update(users)
+        .set({ verificationToken: null, verificationTokenExpiresAt: null })
+        .where(eq(users.id, user.id));
+
+      logMessage(
+        "info",
+        `Attempt to verify user with email (${user.email}) failed because the token has been expired for ${((Date.now() - user.verificationTokenExpiresAt.getTime()) / 60000).toFixed(2)} minutes.`,
+      );
+
+      throw new OperError({
+        code: UserErrorCodes.TokenInvalidOrExpired,
+        message: "Verification invalid or expired",
+        cause: "Token is expired",
+      });
+    }
+
+    await this.store.db
+      .update(users)
+      .set({
+        verificationToken: null,
+        verificationTokenExpiresAt: null,
+        status: "verified",
+      })
+      .where(eq(users.id, user.id));
   }
 
   /**
@@ -130,50 +154,7 @@ export class Users {
     email: string,
     password: string,
     rememberMe: boolean = false,
-  ) {
-    const user = await this.repository.findOneBy({ email });
-
-    if (!user) {
-      throw new OperError({
-        code: UserErrorCodes.InvalidEmailOrPassword,
-        message: "Invalid email or password",
-        cause:
-          "The user may have mistyped their email, tried to log in instead of registering a new account, or typed in the wrong password",
-      });
-    }
-
-    if (user.status === UserStatus.PENDING) {
-      throw new OperError({
-        code: UserErrorCodes.AccountNotVerified,
-        message: "The user is awaiting activation",
-        cause: "The user has not activated his account yet",
-      });
-    }
-
-    if (!user.verifyPassword(password)) {
-      throw new OperError({
-        code: UserErrorCodes.InvalidEmailOrPassword,
-        message: "Invalid email or password",
-        cause:
-          "The user may have mistyped their email, tried to log in instead of registering a new account, or typed in the wrong password",
-      });
-    }
-
-    const token = sign({ id: user.id.toString() }, this.store.JWT_SECRET, {
-      expiresIn: rememberMe ? "30d" : "1d",
-      algorithm: "HS512",
-    });
-
-    return {
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    };
-  }
+  ) {}
 
   /**
    * Changes the name of a user
@@ -182,20 +163,7 @@ export class Users {
    * @returns updated user
    * @throws {OperError} with code U604 if the user is not found
    */
-  async changeName(id: number, name: string) {
-    const user = await this.repository.findOne({ where: { id } });
-    if (!user) {
-      throw new OperError({
-        code: UserErrorCodes.UserNotFound,
-        message: "User not found",
-        cause: "The user with the specified ID does not exist",
-      });
-    }
-    user.name = name;
-    await this.repository.save(user);
-
-    return user;
-  }
+  async changeName(id: number, name: string) {}
 
   /**
    * Requests an email change for a user by generating an OTP and saving it to the user's record.
@@ -203,24 +171,7 @@ export class Users {
    * @returns the generated OTP and user details
    * @throws {OperError} with code U604 if the user is not found
    */
-  async requestChangeEmail(id: number) {
-    const user = await this.repository.findOne({ where: { id } });
-    if (!user) {
-      throw new OperError({
-        code: UserErrorCodes.UserNotFound,
-        message: "User not found",
-        cause: "The user with the specified ID does not exist",
-      });
-    }
-
-    const otp = crypto.randomBytes(3).toString("hex");
-
-    user.emailChangeOtp = otp;
-    user.emailChangeOtpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-    await this.repository.save(user);
-
-    return { name: user.name, email: user.email, otp };
-  }
+  async requestChangeEmail(id: number) {}
 
   /**
    * Changes the email of a user after verifying the OTP.
@@ -230,30 +181,7 @@ export class Users {
    * @returns the updated user
    * @throws {OperError} with code U605 if the user is not found or the OTP is invalid or expired
    */
-  async changeEmail(id: number, otp: string, newEmail: string) {
-    const user = await this.repository.findOne({
-      where: {
-        id,
-        emailChangeOtp: otp,
-        emailChangeOtpExpiry: MoreThan(new Date()),
-      },
-    });
-
-    if (!user) {
-      throw new OperError({
-        code: UserErrorCodes.EmailChangeOtpInvalidOrExpired,
-        message: "OTP is invalid or expired",
-        cause: "The OTP provided is either invalid or has expired",
-      });
-    }
-
-    user.email = newEmail;
-    user.emailChangeOtp = null;
-    user.emailChangeOtpExpiry = null;
-    await this.repository.save(user);
-
-    return user;
-  }
+  async changeEmail(id: number, otp: string, newEmail: string) {}
 
   /**
    * Changes the user's password if the old password is correct.
@@ -263,29 +191,7 @@ export class Users {
    * @throws {OperError} with code U604 if the user is not found
    * @throws {OperError} with code U606 if the old password is incorrect
    */
-  async changePassword(id: number, oldPassword: string, newPassword: string) {
-    const user = await this.repository.findOne({ where: { id } });
-    if (!user) {
-      throw new OperError({
-        code: UserErrorCodes.UserNotFound,
-        message: "User not found",
-        cause: "The user with the specified ID does not exist",
-      });
-    }
-
-    const isPasswordValid = user.verifyPassword(oldPassword);
-    if (!isPasswordValid) {
-      throw new OperError({
-        code: UserErrorCodes.WrongCurrentPassword,
-        message: "Wrong current password",
-        cause:
-          "The provided password does not match the user's current password",
-      });
-    }
-
-    user.password = User.hashPassword(newPassword);
-    await this.repository.save(user);
-  }
+  async changePassword(id: number, oldPassword: string, newPassword: string) {}
 
   /**
    * Requests a password reset for the user with the specified ID.
@@ -293,23 +199,7 @@ export class Users {
    * @returns the generated password reset token and user details
    * @throws {OperError} with code U604 if the user is not found
    */
-  async requestPasswordReset(id: number) {
-    const user = await this.repository.findOne({ where: { id } });
-    if (!user) {
-      throw new OperError({
-        code: UserErrorCodes.UserNotFound,
-        message: "User not found",
-        cause: "The user with the specified ID does not exist",
-      });
-    }
-
-    const token = crypto.randomBytes(32).toString("hex");
-    user.passwordResetToken = token;
-    user.passwordResetTokenExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-    await this.repository.save(user);
-
-    return { name: user.name, email: user.email, token };
-  }
+  async requestPasswordReset(id: number) {}
 
   /**
    * Resets the user's password using the provided reset token and new password.
@@ -317,141 +207,5 @@ export class Users {
    * @param newPassword The new password to set.
    * @throws {OperError} with code U607 if the reset token is invalid or expired
    */
-  async resetPassword(token: string, newPassword: string) {
-    const user = await this.repository.findOne({
-      where: {
-        passwordResetToken: token,
-        passwordResetTokenExpiry: MoreThan(new Date()),
-      },
-    });
-    if (!user) {
-      throw new OperError({
-        code: UserErrorCodes.InvalidResetToken,
-        message: "Invalid reset token",
-        cause: "The provided reset token is not valid",
-      });
-    }
-
-    user.password = User.hashPassword(newPassword);
-    user.passwordResetToken = null;
-    user.passwordResetTokenExpiry = null;
-    await this.repository.save(user);
-  }
-
-  /**
-   * Adds a new address for the user.
-   * @param userId number
-   * @param name string
-   * @param country string
-   * @param state string
-   * @param city string
-   * @param street string
-   * @param building string
-   * @param floor string?
-   * @returns new address
-   * @throws {OperError} with code U604 if the user is not found
-   */
-  async addAddress(
-    userId: number,
-    name: string,
-    country: string,
-    state: string,
-    city: string,
-    street: string,
-    building: string,
-    floor?: string,
-  ) {
-    const user = await this.repository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new OperError({
-        code: UserErrorCodes.UserNotFound,
-        message: "User not found",
-        cause: "The user with the specified ID does not exist",
-      });
-    }
-
-    const address = this.addressRepository.create({
-      userId,
-      name,
-      country,
-      state,
-      city,
-      street,
-      building,
-      floor: floor ?? null,
-    });
-
-    await this.addressRepository.save(address);
-
-    return address;
-  }
-
-  /**
-   * Updates an existing address for the user.
-   * @param addressId number
-   * @param name string
-   * @param country string
-   * @param state string
-   * @param city string
-   * @param street string
-   * @param building string
-   * @param floor string?
-   * @returns updated address
-   * @throws {OperError} with code U608 if the address is not found
-   */
-  async updateAddress(
-    addressId: number,
-    name: string,
-    country: string,
-    state: string,
-    city: string,
-    street: string,
-    building: string,
-    floor?: string,
-  ) {
-    const address = await this.addressRepository.findOne({
-      where: { id: addressId },
-    });
-    if (!address) {
-      throw new OperError({
-        code: UserErrorCodes.AddressNotFound,
-        message: "Address not found",
-        cause: "The address with the specified ID does not exist",
-      });
-    }
-
-    Object.assign(address, {
-      name,
-      country,
-      state,
-      city,
-      street,
-      building,
-      floor: floor ?? null,
-    });
-
-    await this.addressRepository.save(address);
-
-    return address;
-  }
-
-  /**
-   * Removes an address for the user.
-   * @param addressId number
-   * @throws {OperError} with code U608 if the address is not found
-   */
-  async removeAddress(addressId: number) {
-    const address = await this.addressRepository.findOne({
-      where: { id: addressId },
-    });
-    if (!address) {
-      throw new OperError({
-        code: UserErrorCodes.AddressNotFound,
-        message: "Address not found",
-        cause: "The address with the specified ID does not exist",
-      });
-    }
-
-    await this.addressRepository.remove(address);
-  }
+  async resetPassword(token: string, newPassword: string) {}
 }

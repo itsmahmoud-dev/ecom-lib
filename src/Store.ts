@@ -1,8 +1,7 @@
-import "reflect-metadata";
-import { DataSource } from "typeorm";
 import { EventEmitter } from "node:events";
+import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
 
-import { Address, FacetDefination, Product, ProductVariant, User } from "./db";
+import * as schema from "./models";
 import { Products } from "./Products";
 import { Users } from "./Users";
 import { Facets } from "./Facets";
@@ -10,21 +9,15 @@ import { Facets } from "./Facets";
 type StoreParams = {
   name: string;
   dataPath: string;
-  db: {
-    PORT: number;
-    NAME: string;
-    USER: string;
-    PASS: string;
-    HOST: string;
-  };
+  dbUrl: string;
   JWT_SECRET: string;
 };
 
 export class Store {
   name: string;
-  dataSource: DataSource;
   dataPath: string;
   JWT_SECRET: string;
+  db: NodePgDatabase<typeof schema>;
 
   // Repositories
   users: Users;
@@ -37,29 +30,10 @@ export class Store {
     this.name = params.name;
     this.dataPath = params.dataPath;
     this.JWT_SECRET = params.JWT_SECRET;
-
-    this.dataSource = new DataSource({
-      type: "postgres",
-      host: params.db.HOST,
-      port: params.db.PORT,
-      username: params.db.USER,
-      password: params.db.PASS,
-      database: params.db.NAME,
-      entities: [Product, ProductVariant, FacetDefination, User, Address],
-      synchronize: true,
-      logging: false,
-    });
+    this.db = drizzle(params.dbUrl, { schema, casing: "snake_case" });
 
     this.products = new Products(this);
     this.users = new Users(this);
     this.facets = new Facets(this);
-  }
-
-  async initializeDatabase() {
-    try {
-      await this.dataSource.initialize();
-    } catch (e) {
-      console.log(e);
-    }
   }
 }
