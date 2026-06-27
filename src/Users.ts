@@ -33,7 +33,8 @@ export class Users {
         createdAt: true,
         updatedAt: true,
       },
-      where: (user, { eq, and }) => and(eq(user.id, id), eq(user.status, "verified")),
+      where: (user, { eq, and }) =>
+        and(eq(user.id, id), eq(user.status, "verified")),
     });
 
     if (!user) {
@@ -230,7 +231,8 @@ export class Users {
    */
   async changeName(id: string, name: string) {
     const user = await this.store.db.query.users.findFirst({
-      where: (user, { eq, and }) => and(eq(user.id, id), eq(user.status, "verified")),
+      where: (user, { eq, and }) =>
+        and(eq(user.id, id), eq(user.status, "verified")),
     });
 
     if (!user) {
@@ -277,7 +279,8 @@ export class Users {
    */
   async requestChangeEmail(id: string, newEmail: string) {
     const user = await this.store.db.query.users.findFirst({
-      where: (user, { eq, and }) => and(eq(user.id, id), eq(user.status, "verified")),
+      where: (user, { eq, and }) =>
+        and(eq(user.id, id), eq(user.status, "verified")),
     });
 
     if (!user) {
@@ -365,7 +368,8 @@ export class Users {
     password: string,
   ) {
     const user = await this.store.db.query.users.findFirst({
-      where: (user, { eq, and }) => and(eq(user.id, id), eq(user.status, "verified")),
+      where: (user, { eq, and }) =>
+        and(eq(user.id, id), eq(user.status, "verified")),
     });
 
     if (!user) {
@@ -465,7 +469,8 @@ export class Users {
    */
   async changePassword(id: string, oldPassword: string, newPassword: string) {
     const user = await this.store.db.query.users.findFirst({
-      where: (user, { eq, and }) => and(eq(user.id, id), eq(user.status, "verified")),
+      where: (user, { eq, and }) =>
+        and(eq(user.id, id), eq(user.status, "verified")),
     });
 
     if (!user) {
@@ -512,7 +517,8 @@ export class Users {
    */
   async requestPasswordReset(email: string) {
     const user = await this.store.db.query.users.findFirst({
-      where: (user, { eq, and }) => and(eq(user.email, email), eq(user.status, "verified")),
+      where: (user, { eq, and }) =>
+        and(eq(user.email, email), eq(user.status, "verified")),
     });
 
     if (!user) {
@@ -557,7 +563,8 @@ export class Users {
    */
   async resetPassword(token: string, newPassword: string) {
     const user = await this.store.db.query.users.findFirst({
-      where: (user, { eq, and }) => and(eq(user.passwordResetToken, token), eq(user.status, "verified")),
+      where: (user, { eq, and }) =>
+        and(eq(user.passwordResetToken, token), eq(user.status, "verified")),
     });
 
     if (!user) {
