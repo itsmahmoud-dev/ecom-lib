@@ -3,7 +3,7 @@ import { store } from ".";
 import { faker } from "@faker-js/faker";
 import { OperError } from "../src/lib/OperError";
 import { UserErrorCodes } from "../src/lib/errors";
-import { users } from "../src/models";
+import { hashPassword, verifyPassword, users } from "../src/models";
 
 test("Get user by id", async () => {
   const [user] = await store.db
@@ -51,10 +51,9 @@ test("Regsiter new user with an email", async () => {
 
   expect(user).toMatchObject({
     id: expect.any(String),
+    otp: expect.any(String),
     name: testName,
     email: testEmail,
-    verificationToken: expect.any(String),
-    verificationTokenExpiresAt: expect.any(Date),
   });
 });
 
@@ -70,22 +69,20 @@ test("Register a duplicate email", async () => {
 
   expect(userThatExists).toBeDefined();
 
-  const result = expect(
-    store.users.registerUser(
-      faker.person.fullName(),
-      userThatExists!.email,
-      "1234",
-    ),
+  const user = store.users.registerUser(
+    faker.person.fullName(),
+    userThatExists!.email,
+    "1234",
   );
 
-  result.rejects.toThrow(OperError);
-  result.rejects.toMatchObject({
+  expect(user).rejects.toThrow(OperError);
+  expect(user).rejects.toMatchObject({
     code: UserErrorCodes.EmailAlreadyRegistered,
     message: expect.any(String),
   });
 });
 
-test("Activate user", async () => {
+test("Verify user", async () => {
   const user = await store.users.registerUser(
     faker.person.fullName(),
     faker.internet.email(),
@@ -94,7 +91,7 @@ test("Activate user", async () => {
 
   expect(user).toBeDefined();
 
-  await store.users.verifyUser(user!.verificationToken!);
+  await store.users.verifyUser(user!.otp);
 
   const updatedUser = await store.db.query.users.findFirst({
     where: (u, { eq }) => eq(u.id, user!.id),
@@ -103,297 +100,548 @@ test("Activate user", async () => {
   expect(updatedUser).toBeDefined();
 
   expect(updatedUser!.status).toBe("verified");
-  expect(updatedUser!.verificationToken).toBeNull();
-  expect(updatedUser!.verificationTokenExpiresAt).toBeNull();
+  expect(updatedUser!.verificationOtp).toBeNull();
+  expect(updatedUser!.verificationOtpExpiresAt).toBeNull();
 });
 
-test("Activate user with an expired token", async () => {
+test("Verify user with an expired token", async () => {
   const [user] = await store.db
     .insert(users)
     .values({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: faker.internet.password(),
-      verificationToken: "1234",
-      verificationTokenExpiresAt: new Date(Date.now() - 10 * 60 * 1000),
+      verificationOtp: "1234",
+      verificationOtpExpiresAt: new Date(Date.now() - 10 * 60 * 1000),
     })
     .returning();
 
   expect(user).toBeDefined();
-  expect(user!.verificationToken).not.toBeNull();
-  expect(user!.verificationTokenExpiresAt).not.toBeNull();
+  expect(user!.verificationOtp).not.toBeNull();
+  expect(user!.verificationOtpExpiresAt).not.toBeNull();
 
-  const result = expect(store.users.verifyUser(user!.verificationToken!));
+  const verifiedUser = store.users.verifyUser(user!.verificationOtp!);
 
-  result.rejects.toThrow(OperError);
-  result.rejects.toMatchObject({
-    code: UserErrorCodes.TokenInvalidOrExpired,
+  expect(verifiedUser).rejects.toThrow(OperError);
+  expect(verifiedUser).rejects.toMatchObject({
+    code: UserErrorCodes.VerificationOtpInvalidOrExpired,
     message: expect.any(String),
     cause: expect.any(String),
   });
 });
 
-// test("Log user in", async () => {
-//   const data = await store.users.logUserIn(testEmail, testPassword, false);
+test("Verify user with an invalid OTP", async () => {
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: faker.internet.password(),
+      verificationOtp: "1234",
+      verificationOtpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    })
+    .returning();
 
-//   expect(data).toMatchObject({
-//     token: expect.any(String),
-//     user: {
-//       id: expect.any(Number),
-//       name: expect.any(String),
-//       email: expect.any(String),
-//     },
-//   });
+  expect(user).toBeDefined();
 
-//   expect(Object.values(UserRole)).toContain(data.user.role);
-// });
+  const result = store.users.verifyUser("WRONG1");
 
-// test("Log user in with an unregistered email", async () => {
-//   const data = expect(
-//     store.users.logUserIn(faker.internet.email(), faker.internet.password()),
-//   );
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.VerificationOtpInvalidOrExpired,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
 
-//   data.rejects.toThrow(OperError);
-//   data.rejects.toMatchObject({
-//     code: UserErrorCodes.InvalidEmailOrPassword,
-//     message: expect.any(String),
-//     cause: expect.any(String),
-//   });
-// });
+test("Log user in with correct credentials", async () => {
+  const password = faker.internet.password();
 
-// test("Log user in with a wrong password", async () => {
-//   const data = expect(
-//     store.users.logUserIn(testEmail, faker.internet.password()),
-//   );
+  const user = await store.users.registerUser(
+    faker.person.fullName(),
+    faker.internet.email(),
+    password,
+  );
 
-//   data.rejects.toThrow(OperError);
-//   data.rejects.toMatchObject({
-//     code: UserErrorCodes.InvalidEmailOrPassword,
-//     message: expect.any(String),
-//     cause: expect.any(String),
-//   });
-// });
+  expect(user).toBeDefined();
 
-// test("Log in a pending user", async () => {
-//   const testPassword2 = faker.internet.password();
-//   const user = await store.users.repository.save(
-//     store.users.repository.create({
-//       name: faker.person.fullName(),
-//       email: faker.internet.email(),
-//       password: testPassword2,
-//     }),
-//   );
+  await store.users.verifyUser(user!.otp!);
 
-//   expect(user).not.toBeNull();
+  const token = await store.users.logUserIn(user!.email, password);
 
-//   const result = expect(store.users.logUserIn(user.email!, testPassword2));
+  expect(token).toEqual(expect.any(String));
+});
 
-//   result.rejects.toThrow(OperError);
-//   result.rejects.toMatchObject({
-//     code: UserErrorCodes.AccountNotVerified,
-//     message: expect.any(String),
-//     cause: expect.any(String),
-//   });
-// });
+test("Log user in with an unregistered email", async () => {
+  const user = store.users.logUserIn(
+    faker.internet.email(),
+    faker.internet.password(),
+  );
 
-// test("Change user name", async () => {
-//   const user = await store.users.repository.save(
-//     store.users.repository.create({
-//       name: faker.person.fullName(),
-//       email: faker.internet.email(),
-//       password: faker.internet.password(),
-//     }),
-//   );
+  expect(user).rejects.toThrow(OperError);
+  expect(user).rejects.toMatchObject({
+    code: UserErrorCodes.InvalidEmailOrPassword,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
 
-//   const newName = faker.person.fullName();
-//   const updatedUser = await store.users.changeName(user.id, newName);
+test("Log user in with a wrong password", async () => {
+  const password = faker.internet.password();
 
-//   expect(updatedUser.name).toBe(newName);
-// });
+  const user = await store.users.registerUser(
+    faker.person.fullName(),
+    faker.internet.email(),
+    password,
+  );
 
-// test("Change name of a non-existent user", async () => {
-//   const result = store.users.changeName(-1, faker.person.fullName());
-//   expect(result).rejects.toThrow(OperError);
-//   expect(result).rejects.toMatchObject({
-//     code: UserErrorCodes.UserNotFound,
-//     message: expect.any(String),
-//     cause: expect.any(String),
-//   });
-// });
+  expect(user).toBeDefined();
 
-// test("Request email change", async () => {
-//   const user = await store.users.repository.save(
-//     store.users.repository.create({
-//       name: faker.person.fullName(),
-//       email: faker.internet.email(),
-//       password: faker.internet.password(),
-//     }),
-//   );
+  await store.users.verifyUser(user!.otp!);
 
-//   const { otp } = await store.users.requestChangeEmail(user.id);
+  const loggedUser = store.users.logUserIn(
+    user!.email,
+    faker.internet.password(),
+  );
 
-//   const updatedUser = await store.users.repository.findOneBy({ id: user.id });
+  expect(loggedUser).rejects.toThrow(OperError);
+  expect(loggedUser).rejects.toMatchObject({
+    code: UserErrorCodes.InvalidEmailOrPassword,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
 
-//   expect(updatedUser!.emailChangeOtp).toBe(otp);
-//   expect(updatedUser!.emailChangeOtpExpiry).toBeInstanceOf(Date);
-//   expect(updatedUser!.emailChangeOtpExpiry!.getTime()).toBeGreaterThan(
-//     Date.now(),
-//   );
-// });
+test("Log in an unverified user", async () => {
+  const password = faker.internet.password();
+  const user = await store.users.registerUser(
+    faker.person.fullName(),
+    faker.internet.email(),
+    password,
+  );
 
-// test("Request email change for a non-existent user", async () => {
-//   const result = store.users.requestChangeEmail(-1);
-//   expect(result).rejects.toThrow(OperError);
-//   expect(result).rejects.toMatchObject({
-//     code: UserErrorCodes.UserNotFound,
-//     message: expect.any(String),
-//     cause: expect.any(String),
-//   });
-// });
+  expect(user).toBeDefined();
 
-// test("Change email", async () => {
-//   const user = await store.users.repository.save(
-//     store.users.repository.create({
-//       name: faker.person.fullName(),
-//       email: faker.internet.email(),
-//       password: faker.internet.password(),
-//     }),
-//   );
+  const loggedUser = store.users.logUserIn(user!.email, password);
 
-//   const { otp } = await store.users.requestChangeEmail(user.id);
-//   const newEmail = faker.internet.email();
-//   await store.users.changeEmail(user.id, otp, newEmail);
+  expect(loggedUser).rejects.toThrow(OperError);
+  expect(loggedUser).rejects.toMatchObject({
+    code: UserErrorCodes.AccountNotVerified,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
 
-//   const updatedUser = await store.users.repository.findOneBy({ id: user.id });
+test("Change user name", async () => {
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: "1234",
+    })
+    .returning();
 
-//   expect(updatedUser!.email).toBe(newEmail);
-//   expect(updatedUser!.emailChangeOtp).toBeNull();
-//   expect(updatedUser!.emailChangeOtpExpiry).toBeNull();
-// });
+  expect(user).toBeDefined();
 
-// test("Change email with wrong OTP", async () => {
-//   const user = await store.users.repository.save(
-//     store.users.repository.create({
-//       name: faker.person.fullName(),
-//       email: faker.internet.email(),
-//       password: faker.internet.password(),
-//     }),
-//   );
+  const newName = faker.person.fullName();
+  const updatedUser = await store.users.changeName(user!.id, newName);
 
-//   await store.users.requestChangeEmail(user.id);
-//   const result = store.users.changeEmail(
-//     user.id,
-//     "wrong-otp",
-//     faker.internet.email(),
-//   );
+  expect(updatedUser).toBeDefined();
 
-//   expect(result).rejects.toThrow(OperError);
-//   expect(result).rejects.toMatchObject({
-//     code: UserErrorCodes.EmailChangeOtpInvalidOrExpired,
-//     message: expect.any(String),
-//     cause: expect.any(String),
-//   });
-// });
+  expect(updatedUser!.name).toBe(newName);
+});
 
-// test("Change password", async () => {
-//   const password = faker.internet.password();
-//   const user = await store.users.repository.save(
-//     store.users.repository.create({
-//       name: faker.person.fullName(),
-//       email: faker.internet.email(),
-//       password: User.hashPassword(password),
-//     }),
-//   );
+test("Change name of a non-existent user", async () => {
+  const result = store.users.changeName(
+    faker.string.uuid(),
+    faker.person.fullName(),
+  );
 
-//   const newPassword = faker.internet.password();
-//   await store.users.changePassword(user.id, password, newPassword);
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.UserNotFound,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
 
-//   const updatedUser = await store.users.repository.findOneBy({ id: user.id });
-//   expect(updatedUser!.verifyPassword(newPassword)).toBeTrue();
-// });
+test("Request email change", async () => {
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: "1234",
+    })
+    .returning();
 
-// test("Change password with wrong current password", async () => {
-//   const user = await store.users.repository.save(
-//     store.users.repository.create({
-//       name: faker.person.fullName(),
-//       email: faker.internet.email(),
-//       password: User.hashPassword(faker.internet.password()),
-//     }),
-//   );
+  expect(user).toBeDefined();
 
-//   const result = store.users.changePassword(
-//     user.id,
-//     "wrong-password",
-//     faker.internet.password(),
-//   );
+  const { otp } = await store.users.requestChangeEmail(user!.id);
 
-//   expect(result).rejects.toThrow(OperError);
-//   expect(result).rejects.toMatchObject({
-//     code: UserErrorCodes.WrongCurrentPassword,
-//     message: expect.any(String),
-//     cause: expect.any(String),
-//   });
-// });
+  expect(otp).toEqual(expect.any(String));
 
-// test("Request password reset", async () => {
-//   const user = await store.users.repository.save(
-//     store.users.repository.create({
-//       name: faker.person.fullName(),
-//       email: faker.internet.email(),
-//       password: faker.internet.password(),
-//     }),
-//   );
+  const dbUser = await store.db.query.users.findFirst({
+    where: (u, { eq }) => eq(u.id, user!.id),
+  });
 
-//   const { token } = await store.users.requestPasswordReset(user.id);
+  expect(dbUser!.emailChangeOtp).toBe(otp);
+  expect(dbUser!.emailChangeOtpExpiresAt).toBeInstanceOf(Date);
+  expect(dbUser!.emailChangeOtpExpiresAt!.getTime()).toBeGreaterThan(Date.now());
+});
 
-//   const updatedUser = await store.users.repository.findOneBy({ id: user.id });
+test("Request email change for a non-existent user", async () => {
+  const result = store.users.requestChangeEmail(faker.string.uuid());
 
-//   expect(updatedUser!.passwordResetToken).toBe(token);
-//   expect(updatedUser!.passwordResetTokenExpiry).toBeInstanceOf(Date);
-//   expect(updatedUser!.passwordResetTokenExpiry!.getTime()).toBeGreaterThan(
-//     Date.now(),
-//   );
-// });
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.UserNotFound,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
 
-// test("Request password reset for a non-existent user", async () => {
-//   const result = store.users.requestPasswordReset(-1);
-//   expect(result).rejects.toThrow(OperError);
-//   expect(result).rejects.toMatchObject({
-//     code: UserErrorCodes.UserNotFound,
-//     message: expect.any(String),
-//     cause: expect.any(String),
-//   });
-// });
+test("Change email", async () => {
+  const password = faker.internet.password();
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: hashPassword(password),
+    })
+    .returning();
 
-// test("Reset password", async () => {
-//   const user = await store.users.repository.save(
-//     store.users.repository.create({
-//       name: faker.person.fullName(),
-//       email: faker.internet.email(),
-//       password: faker.internet.password(),
-//     }),
-//   );
+  expect(user).toBeDefined();
 
-//   const { token } = await store.users.requestPasswordReset(user.id);
-//   const newPassword = faker.internet.password();
-//   await store.users.resetPassword(token, newPassword);
+  const { otp } = await store.users.requestChangeEmail(user!.id);
+  const newEmail = faker.internet.email();
+  const updatedUser = await store.users.changeEmail(
+    user!.id,
+    otp,
+    newEmail,
+    password,
+  );
 
-//   const updatedUser = await store.users.repository.findOneBy({ id: user.id });
+  expect(updatedUser!.email).toBe(newEmail);
 
-//   expect(updatedUser!.verifyPassword(newPassword)).toBeTrue();
-//   expect(updatedUser!.passwordResetToken).toBeNull();
-//   expect(updatedUser!.passwordResetTokenExpiry).toBeNull();
-// });
+  const dbUser = await store.db.query.users.findFirst({
+    where: (u, { eq }) => eq(u.id, user!.id),
+  });
 
-// test("Reset password with an invalid token", async () => {
-//   const result = store.users.resetPassword(
-//     "invalid-token",
-//     faker.internet.password(),
-//   );
-//   expect(result).rejects.toThrow(OperError);
-//   expect(result).rejects.toMatchObject({
-//     code: UserErrorCodes.InvalidResetToken,
-//     message: expect.any(String),
-//     cause: expect.any(String),
-//   });
-// });
+  expect(dbUser!.emailChangeOtp).toBeNull();
+  expect(dbUser!.emailChangeOtpExpiresAt).toBeNull();
+});
+
+test("Change email with wrong OTP", async () => {
+  const password = faker.internet.password();
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: hashPassword(password),
+    })
+    .returning();
+
+  expect(user).toBeDefined();
+
+  await store.users.requestChangeEmail(user!.id);
+
+  const result = store.users.changeEmail(
+    user!.id,
+    "WRONG1",
+    faker.internet.email(),
+    password,
+  );
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.EmailChangeOtpInvalidOrExpired,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
+
+test("Change email with expired OTP", async () => {
+  const password = faker.internet.password();
+  const otp = "ABCDEF";
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: hashPassword(password),
+      emailChangeOtp: otp,
+      emailChangeOtpExpiresAt: new Date(Date.now() - 10 * 60 * 1000),
+    })
+    .returning();
+
+  expect(user).toBeDefined();
+
+  const result = store.users.changeEmail(
+    user!.id,
+    otp,
+    faker.internet.email(),
+    password,
+  );
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.EmailChangeOtpInvalidOrExpired,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+
+  const dbUser = await store.db.query.users.findFirst({
+    where: (u, { eq }) => eq(u.id, user!.id),
+  });
+
+  expect(dbUser!.emailChangeOtp).toBeNull();
+  expect(dbUser!.emailChangeOtpExpiresAt).toBeNull();
+});
+
+test("Change email with wrong password", async () => {
+  const password = faker.internet.password();
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: hashPassword(password),
+    })
+    .returning();
+
+  expect(user).toBeDefined();
+
+  const { otp } = await store.users.requestChangeEmail(user!.id);
+
+  const result = store.users.changeEmail(
+    user!.id,
+    otp,
+    faker.internet.email(),
+    "wrong-password",
+  );
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.WrongPassword,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
+
+test("Change email to an already registered email", async () => {
+  const password = faker.internet.password();
+
+  const [[existingUser], [user]] = await Promise.all([
+    store.db
+      .insert(users)
+      .values({
+        name: faker.person.fullName(),
+        email: faker.internet.email(),
+        password: "1234",
+      })
+      .returning(),
+    store.db
+      .insert(users)
+      .values({
+        name: faker.person.fullName(),
+        email: faker.internet.email(),
+        password: hashPassword(password),
+      })
+      .returning(),
+  ]);
+
+  expect(existingUser).toBeDefined();
+  expect(user).toBeDefined();
+
+  const { otp } = await store.users.requestChangeEmail(user!.id);
+
+  const result = store.users.changeEmail(
+    user!.id,
+    otp,
+    existingUser!.email,
+    password,
+  );
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.EmailAlreadyRegistered,
+    message: expect.any(String),
+  });
+});
+
+test("Change password", async () => {
+  const password = faker.internet.password();
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: hashPassword(password),
+    })
+    .returning();
+
+  expect(user).toBeDefined();
+
+  const newPassword = faker.internet.password();
+  await store.users.changePassword(user!.id, password, newPassword);
+
+  const dbUser = await store.db.query.users.findFirst({
+    where: (u, { eq }) => eq(u.id, user!.id),
+  });
+
+  expect(dbUser).toBeDefined();
+  expect(verifyPassword(newPassword, dbUser!.password)).toBeTrue();
+});
+
+test("Change password for a non-existent user", async () => {
+  const result = store.users.changePassword(
+    faker.string.uuid(),
+    faker.internet.password(),
+    faker.internet.password(),
+  );
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.UserNotFound,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
+
+test("Change password with wrong current password", async () => {
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: hashPassword(faker.internet.password()),
+    })
+    .returning();
+
+  expect(user).toBeDefined();
+
+  const result = store.users.changePassword(
+    user!.id,
+    "wrong-password",
+    faker.internet.password(),
+  );
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.WrongCurrentPassword,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
+
+test("Request password reset", async () => {
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: hashPassword(faker.internet.password()),
+    })
+    .returning();
+
+  expect(user).toBeDefined();
+
+  const { token, user: resetUser } = await store.users.requestPasswordReset(
+    user!.email,
+  );
+
+  expect(token).toEqual(expect.any(String));
+  expect(resetUser.name).toBe(user!.name);
+  expect(resetUser.email).toBe(user!.email);
+
+  const dbUser = await store.db.query.users.findFirst({
+    where: (u, { eq }) => eq(u.id, user!.id),
+  });
+
+  expect(dbUser!.passwordResetToken).toBe(token);
+  expect(dbUser!.passwordResetTokenExpiresAt).toBeInstanceOf(Date);
+  expect(dbUser!.passwordResetTokenExpiresAt!.getTime()).toBeGreaterThan(
+    Date.now(),
+  );
+});
+
+test("Request password reset for a non-existent user", async () => {
+  const result = store.users.requestPasswordReset(faker.internet.email());
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.UserNotFound,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
+
+test("Reset password", async () => {
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: hashPassword(faker.internet.password()),
+    })
+    .returning();
+
+  expect(user).toBeDefined();
+
+  const { token } = await store.users.requestPasswordReset(user!.email);
+
+  const newPassword = faker.internet.password();
+  await store.users.resetPassword(token, newPassword);
+
+  const dbUser = await store.db.query.users.findFirst({
+    where: (u, { eq }) => eq(u.id, user!.id),
+  });
+
+  expect(dbUser).toBeDefined();
+  expect(verifyPassword(newPassword, dbUser!.password)).toBeTrue();
+  expect(dbUser!.passwordResetToken).toBeNull();
+  expect(dbUser!.passwordResetTokenExpiresAt).toBeNull();
+});
+
+test("Reset password with an invalid token", async () => {
+  const result = store.users.resetPassword(
+    "invalid-token",
+    faker.internet.password(),
+  );
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.InvalidOrExpiredResetToken,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
+
+test("Reset password with an expired token", async () => {
+  const token = "expired-reset-token-xyz";
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: hashPassword(faker.internet.password()),
+      passwordResetToken: token,
+      passwordResetTokenExpiresAt: new Date(Date.now() - 10 * 60 * 1000),
+    })
+    .returning();
+
+  expect(user).toBeDefined();
+
+  const result = store.users.resetPassword(token, faker.internet.password());
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.InvalidOrExpiredResetToken,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});

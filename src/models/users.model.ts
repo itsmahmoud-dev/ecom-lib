@@ -19,15 +19,17 @@ export const users = pgTable("users", (t) => ({
 
   status: userStatusEnum().notNull().default("pending"),
 
-  verificationToken: t.text(),
+  verificationOtp: t.varchar({ length: 6 }),
 
-  verificationTokenExpiresAt: t.timestamp({ withTimezone: true }),
+  verificationOtpExpiresAt: t.timestamp({ withTimezone: true }),
 
   emailChangeOtp: t.varchar({ length: 6 }),
 
   emailChangeOtpExpiresAt: t.timestamp({ withTimezone: true }),
 
   passwordResetToken: t.text(),
+
+  accessTokenId: t.text().default("1").notNull(),
 
   passwordResetTokenExpiresAt: t.timestamp({ withTimezone: true }),
 

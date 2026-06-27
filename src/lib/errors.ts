@@ -5,15 +5,16 @@ import { extractKeyValue } from "./string";
 import { OperError } from "./OperError";
 
 export enum UserErrorCodes {
-  TokenInvalidOrExpired = "U600",
-  InvalidEmailOrPassword = "U601",
-  AccountNotVerified = "U602",
-  EmailAlreadyRegistered = "U603",
-  UserNotFound = "U604",
-  EmailChangeOtpInvalidOrExpired = "U605",
-  WrongCurrentPassword = "U606",
-  InvalidResetToken = "U607",
-  AddressNotFound = "U608",
+  UserNotFound = "U000",
+  InvalidEmailOrPassword = "U001",
+  EmailChangeOtpInvalidOrExpired = "U002",
+  AccountNotVerified = "U003",
+  VerificationOtpInvalidOrExpired = "U004",
+  EmailAlreadyRegistered = "U005",
+  WrongPassword = "U006",
+  WrongCurrentPassword = "U007",
+  InvalidOrExpiredResetToken = "U008",
+  SameEmail = "U009",
 }
 
 export enum ProductErrorCodes {
@@ -26,23 +27,25 @@ export enum FacetErrorCodes {
   FacetNotFound = "F601",
 }
 
-export function handleError(e: unknown) {
+export function handleError(e: unknown): never {
   if (isUniqueViolationError(e)) {
     const [key, value] = extractKeyValue(e.cause.detail);
     if (key === "email") {
       logMessage(
         "info",
-        `Attempt to insert a new user with email (${value}) failed because an account with the same email already exists.`,
+        `Attempt to register/change email to (${value}) failed because an account with the same email already exists.`,
       );
       throw new OperError({
         code: UserErrorCodes.EmailAlreadyRegistered,
-        message: "Email already registered to another account",
-        cause: `Email ${value} is registered to another account`,
+        message: "Email is already taken",
+        cause: `Email ${value} is already taken`,
         key: key?.split(","),
         value: value?.split(","),
       });
     }
   }
+
+  throw e;
 }
 
 export function isUniqueViolationError(
@@ -67,15 +70,15 @@ export function logMessage(
   }
 
   if (severity === "success") {
-    console.log(pc.bgGreen(`[${new Date().toLocaleString()}]: ${message}`));
+    console.log(pc.green(`[${new Date().toLocaleString()}]: ${message}`));
   }
   if (severity === "error") {
-    console.log(pc.bgRed(`[${new Date().toLocaleString()}]: ${message}`));
+    console.log(pc.red(`[${new Date().toLocaleString()}]: ${message}`));
   }
   if (severity === "warn") {
-    console.log(pc.bgYellow(`[${new Date().toLocaleString()}]: ${message}`));
+    console.log(pc.yellow(`[${new Date().toLocaleString()}]: ${message}`));
   }
   if (severity === "info") {
-    console.log(pc.bgCyan(`[${new Date().toLocaleString()}]: ${message}`));
+    console.log(pc.cyan(`[${new Date().toLocaleString()}]: ${message}`));
   }
 }
