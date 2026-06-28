@@ -12,6 +12,7 @@ test("Get user by id", async () => {
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: "1234",
+      status: "verified",
     })
     .returning();
 
@@ -239,6 +240,7 @@ test("Change user name", async () => {
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: "1234",
+      status: "verified",
     })
     .returning();
 
@@ -273,12 +275,16 @@ test("Request email change", async () => {
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: "1234",
+      status: "verified",
     })
     .returning();
 
   expect(user).toBeDefined();
 
-  const { otp } = await store.users.requestChangeEmail(user!.id);
+  const { otp } = await store.users.requestChangeEmail(
+    user!.id,
+    faker.internet.email(),
+  );
 
   expect(otp).toEqual(expect.any(String));
 
@@ -292,7 +298,10 @@ test("Request email change", async () => {
 });
 
 test("Request email change for a non-existent user", async () => {
-  const result = store.users.requestChangeEmail(faker.string.uuid());
+  const result = store.users.requestChangeEmail(
+    faker.string.uuid(),
+    faker.internet.email(),
+  );
 
   expect(result).rejects.toThrow(OperError);
   expect(result).rejects.toMatchObject({
@@ -310,13 +319,14 @@ test("Change email", async () => {
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: hashPassword(password),
+      status: "verified",
     })
     .returning();
 
   expect(user).toBeDefined();
 
-  const { otp } = await store.users.requestChangeEmail(user!.id);
   const newEmail = faker.internet.email();
+  const { otp } = await store.users.requestChangeEmail(user!.id, newEmail);
   const updatedUser = await store.users.changeEmail(
     user!.id,
     otp,
@@ -342,12 +352,13 @@ test("Change email with wrong OTP", async () => {
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: hashPassword(password),
+      status: "verified",
     })
     .returning();
 
   expect(user).toBeDefined();
 
-  await store.users.requestChangeEmail(user!.id);
+  await store.users.requestChangeEmail(user!.id, faker.internet.email());
 
   const result = store.users.changeEmail(
     user!.id,
@@ -375,6 +386,7 @@ test("Change email with expired OTP", async () => {
       password: hashPassword(password),
       emailChangeOtp: otp,
       emailChangeOtpExpiresAt: new Date(Date.now() - 10 * 60 * 1000),
+      status: "verified",
     })
     .returning();
 
@@ -410,12 +422,16 @@ test("Change email with wrong password", async () => {
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: hashPassword(password),
+      status: "verified",
     })
     .returning();
 
   expect(user).toBeDefined();
 
-  const { otp } = await store.users.requestChangeEmail(user!.id);
+  const { otp } = await store.users.requestChangeEmail(
+    user!.id,
+    faker.internet.email(),
+  );
 
   const result = store.users.changeEmail(
     user!.id,
@@ -442,6 +458,7 @@ test("Change email to an already registered email", async () => {
         name: faker.person.fullName(),
         email: faker.internet.email(),
         password: "1234",
+        status: "verified",
       })
       .returning(),
     store.db
@@ -450,6 +467,7 @@ test("Change email to an already registered email", async () => {
         name: faker.person.fullName(),
         email: faker.internet.email(),
         password: hashPassword(password),
+        status: "verified",
       })
       .returning(),
   ]);
@@ -457,14 +475,7 @@ test("Change email to an already registered email", async () => {
   expect(existingUser).toBeDefined();
   expect(user).toBeDefined();
 
-  const { otp } = await store.users.requestChangeEmail(user!.id);
-
-  const result = store.users.changeEmail(
-    user!.id,
-    otp,
-    existingUser!.email,
-    password,
-  );
+  const result = store.users.requestChangeEmail(user!.id, existingUser!.email);
 
   expect(result).rejects.toThrow(OperError);
   expect(result).rejects.toMatchObject({
@@ -481,6 +492,7 @@ test("Change password", async () => {
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: hashPassword(password),
+      status: "verified",
     })
     .returning();
 
@@ -519,6 +531,7 @@ test("Change password with wrong current password", async () => {
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: hashPassword(faker.internet.password()),
+      status: "verified",
     })
     .returning();
 
@@ -545,6 +558,7 @@ test("Request password reset", async () => {
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: hashPassword(faker.internet.password()),
+      status: "verified",
     })
     .returning();
 
@@ -587,6 +601,7 @@ test("Reset password", async () => {
       name: faker.person.fullName(),
       email: faker.internet.email(),
       password: hashPassword(faker.internet.password()),
+      status: "verified",
     })
     .returning();
 
@@ -631,6 +646,7 @@ test("Reset password with an expired token", async () => {
       password: hashPassword(faker.internet.password()),
       passwordResetToken: token,
       passwordResetTokenExpiresAt: new Date(Date.now() - 10 * 60 * 1000),
+      status: "verified",
     })
     .returning();
 
