@@ -1,7 +1,7 @@
 import { Store } from "../src";
 import { afterAll } from "bun:test";
 import { rmSync } from "fs";
-import { users } from "../src/models";
+import { facets, users } from "../src/models";
 
 export const store = new Store({
   name: "Test Store",
@@ -12,5 +12,6 @@ export const store = new Store({
 
 afterAll(async () => {
   await store.db.delete(users);
+  await store.db.delete(facets);
   rmSync(`${store.dataPath}/images/products/*`, { force: true });
 });

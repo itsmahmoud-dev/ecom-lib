@@ -1,33 +1,92 @@
-// test("Add a facet", async () => {
-//   const facet = await store.facets.addFacet("category", "Electronics");
+import { expect, test } from "bun:test";
+import { store } from ".";
+import { faker } from "@faker-js/faker";
+import { OperError } from "../src/lib/OperError";
+import { FacetErrorCodes } from "../src/lib/errors";
 
-//   expect(facet).toBeInstanceOf(FacetDefination);
-//   expect(facet).toMatchObject({ key: "category", value: "Electronics" });
-// });
+test("Get facets by key", async () => {
+  const key = faker.string.alphanumeric(12);
 
-// test("Add a facet with duplicate key and value", async () => {
-//   const facet = store.facets.addFacet("category", "Electronics");
+  const [facet1, facet2] = await Promise.all([
+    store.facets.addFacet(key, faker.string.alphanumeric(8), "text"),
+    store.facets.addFacet(key, faker.string.alphanumeric(8), "text"),
+  ]);
 
-//   expect(facet).rejects.toThrow(OperError);
-//   expect(facet).rejects.toMatchObject({
-//     code: FacetErrorCodes.FacetAlreadyExists,
-//   });
-// });
+  const result = await store.facets.getFacetsByKey(key);
 
-// test("Remove a facet", async () => {
-//   const facet = await store.facets.addFacet("size", "XXL");
-//   await store.facets.removeFacet(facet.key, facet.value);
+  expect(result).toHaveLength(2);
+  expect(result).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ id: facet1!.id }),
+      expect.objectContaining({ id: facet2!.id }),
+    ]),
+  );
+});
 
-//   const removedFacet = await store.facets.repository.findOne({
-//     where: { key: facet.key, value: facet.value },
-//   });
-//   expect(removedFacet).toBeNull();
-// });
+test("Get facets by a key with no results", async () => {
+  const result = await store.facets.getFacetsByKey(
+    faker.string.alphanumeric(20),
+  );
 
-// test("Remove a facet that does not exist", async () => {
-//   const removedFacet = store.facets.removeFacet("size", "XXL");
-//   expect(removedFacet).rejects.toThrow(OperError);
-//   expect(removedFacet).rejects.toMatchObject({
-//     code: FacetErrorCodes.FacetNotFound,
-//   });
-// });
+  expect(result).toEqual([]);
+});
+
+test("Add a facet", async () => {
+  const key = faker.string.alphanumeric(12);
+  const value = faker.string.alphanumeric(8);
+  const type = "text";
+
+  const facet = await store.facets.addFacet(key, value, type);
+
+  expect(facet).toMatchObject({
+    id: expect.any(String),
+    key,
+    value,
+    type,
+    createdAt: expect.any(Date),
+  });
+});
+
+test("Add a facet with a duplicate key and value", async () => {
+  const key = faker.string.alphanumeric(12);
+  const value = faker.string.alphanumeric(8);
+
+  await store.facets.addFacet(key, value, "text");
+
+  const result = store.facets.addFacet(key, value, "text");
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: FacetErrorCodes.FacetAlreadyExists,
+    message: expect.any(String),
+  });
+});
+
+test("Remove a facet", async () => {
+  const facet = await store.facets.addFacet(
+    faker.string.alphanumeric(12),
+    faker.string.alphanumeric(8),
+    "text",
+  );
+
+  expect(facet).toBeDefined();
+
+  await store.facets.removeFacet(facet!.id);
+
+  const dbFacet = await store.db.query.facets.findFirst({
+    where: (f, { eq }) => eq(f.id, facet!.id),
+  });
+
+  expect(dbFacet).toBeUndefined();
+});
+
+test("Remove a facet that does not exist", async () => {
+  const result = store.facets.removeFacet(faker.string.uuid());
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: FacetErrorCodes.FacetNotFound,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
