@@ -1,5 +1,9 @@
+import sharp from "sharp";
+
+import { products, productVariants } from "./models";
+import { handleError } from "./lib/errors";
+
 import type { Store } from "./Store";
-import type { CreateProductParams, UpdateProductParams } from "./types";
 
 export class Products {
   store: Store;
@@ -8,27 +12,80 @@ export class Products {
     this.store = store;
   }
 
-  /**
-   * Creates a new product.
-   * @param p CreateProductParams
-   * @returns the created product
-   * @throws {OperError} with code P600 if the barcode already exists
-   */
-  async createProduct(p: CreateProductParams) {}
+  async createProduct(
+    p: typeof products.$inferInsert & {
+      variants: (Omit<
+        typeof productVariants.$inferInsert,
+        "images" | "productId"
+      > & {
+        images: File[];
+      })[];
+    },
+  ) {
+    await this.store.db.transaction(async (tx) => {
+      console.log(p.name);
+      try {
+        const [product] = await tx
+          .insert(products)
+          .values({
+            name: p.name,
+            barcode: p.barcode,
+            description: p.description,
+            attributes: p.attributes,
+            active: p.active,
+          })
+          .returning();
 
-  /**
-   * Updates an existing product.
-   * @param params UpdateProductParams
-   * @returns the updated product
-   * @throws {OperError} with code P600 if the new barcode belongs to a different product
-   * @throws {OperError} with code P601 if no product with the given id exists
-   */
-  async updateProduct(params: UpdateProductParams) {}
+        if (!product) {
+          throw new Error("Something went wrong while inserting a product");
+        }
 
-  /**
-   * Deletes a product by its id.
-   * @param id the id of the product to delete
-   * @throws {OperError} with code P601 if no product with the given id exists
-   */
+        const nameSlug = p.name
+          .split(" ")
+          .map((el) => el.toLowerCase())
+          .join("-");
+
+        const variantRows = await Promise.all(
+          p.variants.map(async (v) => {
+            const attrsSlug = Object.values(v.attributes)
+              .map((v) => v.toLowerCase().replaceAll(" ", "-").replace("/", "-"))
+              .join("-");
+
+            const filenames = await Promise.all(
+              v.images.map(async (img, i) => {
+                const filename = `${nameSlug}-${attrsSlug}-${Date.now()}-${i + 1}`;
+
+                await sharp(await img.arrayBuffer())
+                  .resize({ width: 500, height: 500, fit: "cover" })
+                  .toFormat("webp")
+                  .toFile(
+                    `${this.store.dataPath}/images/products/${filename}.webp`,
+                  );
+
+                return filename;
+              }),
+            );
+
+            return {
+              productId: product.id,
+              attributes: v.attributes,
+              price: v.price,
+              discount: v.discount,
+              images: filenames,
+            };
+          }),
+        );
+
+        if (variantRows.length > 0) {
+          await tx.insert(productVariants).values(variantRows);
+        }
+      } catch (e) {
+        handleError(e);
+      }
+    });
+  }
+
+  async updateProduct(params: any) {}
+
   async deleteProduct(id: number) {}
 }

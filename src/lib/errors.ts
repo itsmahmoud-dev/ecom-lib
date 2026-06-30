@@ -39,7 +39,7 @@ export function handleError(e: unknown): never {
         throw new OperError({
           code: UserErrorCodes.EmailAlreadyRegistered,
           message: "Email is already taken",
-          cause: `Email ${value} is already taken`,
+          cause: `Email (${value}) is already taken`,
           key: key?.split(","),
           value: value?.split(","),
         });
@@ -47,10 +47,29 @@ export function handleError(e: unknown): never {
     }
     if (e.cause.table === "facets") {
       if (key?.includes("key") || key?.includes("value")) {
+        logMessage(
+          "info",
+          `Attempt to insert/update facet with key/value (${value}) failed because a facet with the same key/value already exists.`,
+        );
         throw new OperError({
           code: FacetErrorCodes.FacetAlreadyExists,
           message: "Facet already exists",
-          cause: `Facet ${value} already exists`,
+          cause: `Facet (${value}) already exists`,
+          key: key?.split(","),
+          value: value?.split(","),
+        });
+      }
+    }
+    if (e.cause.table === "products") {
+      if (key === "barcode") {
+        logMessage(
+          "info",
+          `Attempt to insert/update product with barcode (${value}) failed because a product with the same barcode already exists.`,
+        );
+        throw new OperError({
+          code: ProductErrorCodes.BarcodeAlreadyExists,
+          message: "Barcode is registered to another product",
+          cause: `Barcode (${value}) is already registered to another product`,
           key: key?.split(","),
           value: value?.split(","),
         });
