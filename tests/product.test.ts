@@ -1,178 +1,122 @@
-// test("Create a product", async () => {
-//   const product = await store.products.createProduct({
-//     name: faker.commerce.product(),
-//     barcode: faker.number.bigInt().toString(),
-//     description: faker.commerce.productDescription(),
-//     attributes: {
-//       category: faker.word.adjective(),
-//       gender: "unisex",
-//     },
-//     status: ProductStatus.PENDING,
-//     variants: [
-//       {
-//         price: Number(faker.commerce.price()),
-//         discount: 0,
-//         attributes: {
-//           color: faker.color.human(),
-//           size: "XXL",
-//         },
-//         images: [
-//           new File(
-//             [
-//               await Bun.file(
-//                 "/home/mahmoud/Pictures/stuff from the server/image0-2.jpg",
-//               ).arrayBuffer(),
-//             ],
-//             "image1.png",
-//             { type: "image/jpg" },
-//           ),
-//           new File(
-//             [
-//               await Bun.file(
-//                 "/home/mahmoud/Pictures/stuff from the server/don't simp.jpg",
-//               ).arrayBuffer(),
-//             ],
-//             "image.png",
-//             { type: "image/jpg" },
-//           ),
-//         ],
-//       },
-//     ],
-//   });
+import { expect, test } from "bun:test";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
+import { store } from ".";
+import { faker } from "@faker-js/faker";
+import { OperError } from "../src/lib/OperError";
+import { ProductErrorCodes } from "../src/lib/errors";
 
-//   expect(product).toBeDefined();
-//   expect(product).toBeInstanceOf(Product);
-//   expect(product!.variants).toBeArray();
-//   product!.variants.forEach((o) => {
-//     expect(o.price).toBePositive();
-//   });
-//   expect(
-//     readdirSync(`${store.dataPath}/images/products`).length,
-//   ).toBeGreaterThan(0);
-// });
+function makeImageFile(filename: string, type: string): File {
+  const buffer = readFileSync(join(import.meta.dir, filename));
+  return new File([buffer], filename, { type });
+}
 
-// test("Create a product with a duplicate barcode", async () => {
-//   const testBarcode = (await store.products.repository.findOneBy({}))?.barcode;
+test("Create a product with red and blue t-shirt variants", async () => {
+  const redImage = makeImageFile("red-t-shirt.webp", "image/webp");
+  const blueImage = makeImageFile("blue-t-shirt.jpeg", "image/jpeg");
 
-//   const result = store.products.createProduct({
-//     name: faker.commerce.product(),
-//     barcode: testBarcode!,
-//     description: faker.commerce.productDescription(),
-//     status: ProductStatus.PENDING,
-//     attributes: {
-//       category: faker.word.adjective(),
-//       gender: "unisex",
-//     },
-//     variants: [
-//       {
-//         price: Number(faker.commerce.price()),
-//         discount: 0,
-//         attributes: {
-//           color: faker.color.human(),
-//           size: "XXL",
-//         },
-//         images: [
-//           new File(
-//             [
-//               await Bun.file(
-//                 "/home/mahmoud/Pictures/stuff from the server/don't simp.jpg",
-//               ).arrayBuffer(),
-//             ],
-//             "image.png",
-//             { type: "image/jpg" },
-//           ),
-//         ],
-//       },
-//     ],
-//   });
+  const productName = faker.commerce.productName();
 
-//   expect(result).rejects.toThrow(OperError);
-//   expect(result).rejects.toMatchObject({
-//     code: ProductErrorCodes.BarcodeAlreadyExists,
-//   });
-// });
+  await store.products.createProduct({
+    name: productName,
+    barcode: faker.string.alphanumeric(12),
+    description: faker.commerce.productDescription(),
+    attributes: { type: "t-shirt" },
+    active: true,
+    variants: [
+      {
+        attributes: { color: "red" },
+        price: 19.99,
+        discount: 0,
+        images: [redImage],
+      },
+      {
+        attributes: { color: "blue" },
+        price: 24.99,
+        discount: 5,
+        images: [blueImage],
+      },
+    ],
+  });
 
-// test("Update a product", async () => {
-//   const [product] = await store.products.repository.find({ take: 1 });
+  const product = await store.db.query.products.findFirst({
+    where: (p, { eq }) => eq(p.name, productName),
+    with: { variants: true },
+  });
 
-//   expect(product).toBeInstanceOf(Product);
+  expect(product).toBeDefined();
+  expect(product).toMatchObject({
+    name: productName,
+    active: true,
+    attributes: { type: "t-shirt" },
+  });
+  expect(product!.variants).toHaveLength(2);
 
-//   const newFields = {
-//     id: product!.id,
-//     name: faker.commerce.productName(),
-//     barcode: faker.number.bigInt().toString(),
-//     status: ProductStatus.ACTIVE,
-//     description: faker.commerce.productDescription(),
-//     kind: "clothing" as const,
-//     attributes: {
-//       gender: "unisex" as const,
-//       category: "pants",
-//     },
-//     imagesToDelete: [product?.variants[0]?.images[0]!],
-//     variants: [
-//       {
-//         ...product?.variants[0]!,
-//         dirty: true,
-//         imagesData: [
-//           {
-//             file: new File(
-//               [
-//                 await Bun.file(
-//                   "/home/mahmoud/Pictures/stuff from the server/image0.jpg",
-//                 ).arrayBuffer(),
-//               ],
-//               "image1.png",
-//               { type: "image/jpg" },
-//             ),
-//           },
-//           {
-//             fileName: product?.variants[0]?.images[1]!,
-//           },
-//         ],
-//       },
-//     ],
-//   };
+  const redVariant = product!.variants.find(
+    (v) => (v.attributes as Record<string, string>).color === "red",
+  );
+  const blueVariant = product!.variants.find(
+    (v) => (v.attributes as Record<string, string>).color === "blue",
+  );
 
-//   const updatedProduct = await store.products.updateProduct({
-//     id: newFields.id,
-//     name: newFields.name,
-//     barcode: newFields.barcode,
-//     status: newFields.status,
-//     description: newFields.description,
-//     attributes: newFields.attributes,
-//     variants: newFields.variants,
-//     imagesToDelete: newFields.imagesToDelete,
-//   });
+  expect(redVariant).toBeDefined();
+  expect(redVariant).toMatchObject({ price: 19.99, discount: 0 });
+  expect(redVariant!.images).toHaveLength(1);
+  expect(
+    existsSync(
+      `${store.dataPath}/images/products/${redVariant!.images[0]}.webp`,
+    ),
+  ).toBe(true);
 
-//   expect(updatedProduct).toBeInstanceOf(Product);
+  expect(blueVariant).toBeDefined();
+  expect(blueVariant).toMatchObject({ price: 24.99, discount: 5 });
+  expect(blueVariant!.images).toHaveLength(1);
+  expect(
+    existsSync(
+      `${store.dataPath}/images/products/${blueVariant!.images[0]}.webp`,
+    ),
+  ).toBe(true);
+});
 
-//   expect(updatedProduct.name).toBe(newFields.name);
-//   expect(updatedProduct.barcode).toBe(newFields.barcode);
-//   expect(updatedProduct.status).toBe(newFields.status);
-//   expect(updatedProduct.description).toBe(newFields.description);
-//   expect(updatedProduct.attributes).toMatchObject(newFields.attributes);
-//   expect(updatedProduct.variants).toHaveLength(newFields.variants.length);
+test("Create a product with a duplicate barcode", async () => {
+  const redImage = makeImageFile("red-t-shirt.webp", "image/webp");
+  const barcode = faker.string.alphanumeric(12);
 
-//   // make sure that the original image has been deleted
-//   expect(readdirSync(`${store.dataPath}/images/products/`)).not.toContain(
-//     product?.variants[0]?.images[0],
-//   );
+  await store.products.createProduct({
+    name: faker.commerce.productName(),
+    barcode,
+    description: faker.commerce.productDescription(),
+    attributes: {},
+    active: true,
+    variants: [
+      {
+        attributes: { color: "red" },
+        price: 19.99,
+        discount: 0,
+        images: [redImage],
+      },
+    ],
+  });
 
-//   // make sure that the new image have been added
-//   expect(readdirSync(`${store.dataPath}/images/products/`)).toContain(
-//     updatedProduct?.variants[0]?.images[0]!,
-//   );
-// });
+  const result = store.products.createProduct({
+    name: faker.commerce.productName(),
+    barcode,
+    description: faker.commerce.productDescription(),
+    attributes: {},
+    active: true,
+    variants: [
+      {
+        attributes: { color: "red" },
+        price: 19.99,
+        discount: 0,
+        images: [redImage],
+      },
+    ],
+  });
 
-// test("Delete product", async () => {
-//   const [product] = await store.products.repository.find({ take: 1 });
-
-//   expect(product).toBeDefined();
-
-//   await store.products.deleteProduct(product!.id);
-//   const deletedProduct = await store.products.repository.findOneBy({
-//     id: product!.id,
-//   });
-
-//   expect(deletedProduct).toBeNull();
-// });
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: ProductErrorCodes.BarcodeAlreadyExists,
+    message: expect.any(String),
+  });
+});
