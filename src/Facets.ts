@@ -60,8 +60,6 @@ export class Facets {
       .where(eq(facets.id, id))
       .returning();
 
-    console.log(facet);
-
     if (!facet) {
       logMessage(
         "warn",
