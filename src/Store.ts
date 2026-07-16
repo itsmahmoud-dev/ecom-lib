@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
-import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
+import { drizzle } from "drizzle-orm/bun-sql";
+import { BunSQLDatabase } from "drizzle-orm/bun-sql/postgres";
 
 import * as models from "./db/schema";
 import { relations } from "./db/relations";
@@ -18,7 +19,7 @@ export class Store {
   name: string;
   dataPath: string;
   JWT_SECRET: string;
-  db: NodePgDatabase<typeof relations>;
+  db: BunSQLDatabase<typeof relations>;
 
   // Repositories
   users: Users;

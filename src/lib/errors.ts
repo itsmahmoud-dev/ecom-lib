@@ -83,16 +83,16 @@ export function handleError(e: unknown): never {
 }
 
 export function isUniqueViolationError(e: unknown): e is DrizzleQueryError & {
-  cause: { code: string; detail: string; table: string };
+  cause: { errno: string; detail: string; table: string };
 } {
   return (
     e instanceof DrizzleQueryError &&
     "cause" in e &&
     typeof e.cause === "object" &&
     e.cause !== null &&
-    "code" in e.cause &&
+    "errno" in e.cause &&
     "table" in e.cause &&
-    e.cause.code === "23505"
+    e.cause.errno === "23505"
   );
 }
 
