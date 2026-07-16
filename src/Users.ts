@@ -300,6 +300,29 @@ export class Users {
    * @throws {OperError} `U005` (`EmailAlreadyRegistered`) if the new email is already taken
    */
   async requestChangeEmail(id: string, newEmail: string) {
+    const existingUser = await this.store.db.query.users.findFirst({
+      where: {
+        email: newEmail,
+        id: {
+          ne: id,
+        },
+      },
+    });
+
+    if (existingUser) {
+      logMessage(
+        "info",
+        `Attempt to change email for user with id (${id}) failed because the email (${newEmail}) is already taken.`,
+      );
+      throw new OperError({
+        code: UserErrorCodes.EmailAlreadyRegistered,
+        message: "Email is already taken",
+        cause: `Email (${newEmail}) is already taken`,
+        key: "email",
+        value: newEmail,
+      });
+    }
+
     const user = await this.store.db.query.users.findFirst({
       where: {
         id,
@@ -330,29 +353,6 @@ export class Users {
         code: UserErrorCodes.SameEmail,
         message: "New email cannot be the same as your current email",
         cause: `New email (${newEmail}) is the same as the current email for user with id (${id})`,
-        key: "email",
-        value: newEmail,
-      });
-    }
-
-    const existingUser = await this.store.db.query.users.findFirst({
-      where: {
-        email: newEmail,
-        id: {
-          ne: id,
-        },
-      },
-    });
-
-    if (existingUser) {
-      logMessage(
-        "info",
-        `Attempt to request an email change for user with id (${id}) failed because the email (${newEmail}) is already taken.`,
-      );
-      throw new OperError({
-        code: UserErrorCodes.EmailAlreadyRegistered,
-        message: "Email is already taken",
-        cause: `Email (${newEmail}) is already taken`,
         key: "email",
         value: newEmail,
       });
@@ -396,6 +396,29 @@ export class Users {
     newEmail: string,
     password: string,
   ) {
+    const existingUser = await this.store.db.query.users.findFirst({
+      where: {
+        email: newEmail,
+        id: {
+          ne: id,
+        },
+      },
+    });
+
+    if (existingUser) {
+      logMessage(
+        "info",
+        `Attempt to change email for user with id (${id}) failed because the email (${newEmail}) is already taken.`,
+      );
+      throw new OperError({
+        code: UserErrorCodes.EmailAlreadyRegistered,
+        message: "Email is already taken",
+        cause: `Email (${newEmail}) is already taken`,
+        key: "email",
+        value: newEmail,
+      });
+    }
+
     const user = await this.store.db.query.users.findFirst({
       where: {
         id,
