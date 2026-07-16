@@ -32,21 +32,6 @@ export enum FacetErrorCodes {
 export function handleError(e: unknown): never {
   if (isUniqueViolationError(e)) {
     const [key, value] = extractKeyValue(e.cause.detail);
-    if (e.cause.table === "users") {
-      if (key === "email") {
-        logMessage(
-          "info",
-          `Attempt to register/change email to (${value}) failed because an account with the same email already exists.`,
-        );
-        throw new OperError({
-          code: UserErrorCodes.EmailAlreadyRegistered,
-          message: "Email is already taken",
-          cause: `Email (${value}) is already taken`,
-          key: key?.split(","),
-          value: value?.split(","),
-        });
-      }
-    }
     if (e.cause.table === "facets") {
       if (key?.includes("key") || key?.includes("value")) {
         logMessage(

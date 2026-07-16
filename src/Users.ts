@@ -24,6 +24,7 @@ export class Users {
    */
   async findByID(id: string) {
     const user = await this.store.db.query.users.findFirst({
+      where: { id, status: "verified" },
       columns: {
         id: true,
         name: true,
@@ -34,8 +35,6 @@ export class Users {
         createdAt: true,
         updatedAt: true,
       },
-
-      where: { id, status: "verified" },
     });
 
     if (!user) {
@@ -67,6 +66,24 @@ export class Users {
    */
   async registerUser(name: string, email: string, password: string) {
     try {
+      const existingUser = await this.store.db.query.users.findFirst({
+        where: { email },
+      });
+
+      if (existingUser) {
+        logMessage(
+          "info",
+          `Attempt to register/change email to (${email}) failed because an account with the same email already exists.`,
+        );
+        throw new OperError({
+          code: UserErrorCodes.EmailAlreadyRegistered,
+          message: "Email is already in use",
+          cause: `Email (${email}) is already taken`,
+          key: "email",
+          value: email,
+        });
+      }
+
       const otp = crypto.randomBytes(3).toHex();
 
       const [user] = await this.store.db
