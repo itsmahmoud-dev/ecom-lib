@@ -1,7 +1,7 @@
-import { pgTable } from "drizzle-orm/pg-core";
+import { snakeCase } from "drizzle-orm/pg-core";
 import { products } from "./products.model";
 
-export const productVariants = pgTable("productVariant", (t) => ({
+export const productVariants = snakeCase.table("productVariant", (t) => ({
   id: t.uuid().primaryKey().defaultRandom(),
 
   productId: t
@@ -9,13 +9,9 @@ export const productVariants = pgTable("productVariant", (t) => ({
     .notNull()
     .references(() => products.id, { onDelete: "cascade" }),
 
-  attributes: t.jsonb().notNull().$type<Record<string, string>>(),
-
   price: t.numeric({ mode: "number" }).notNull(),
 
   discount: t.numeric({ mode: "number" }).notNull().default(0),
-
-  images: t.text().array().notNull().default([]),
 
   createdAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
 

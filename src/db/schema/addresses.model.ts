@@ -1,7 +1,7 @@
-import { pgTable } from "drizzle-orm/pg-core";
+import { snakeCase } from "drizzle-orm/pg-core";
 import { users } from "./users.model";
 
-export const addresses = pgTable("addresses", (t) => ({
+export const addresses = snakeCase.table("addresses", (t) => ({
   id: t.uuid().primaryKey().defaultRandom(),
 
   userId: t

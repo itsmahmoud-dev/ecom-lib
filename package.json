@@ -17,13 +17,13 @@
     "@types/bun": "latest",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/pg": "^8.20.0",
-    "drizzle-kit": "^0.31.10"
+    "drizzle-kit": "^1.0.0-rc.4"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.2",
+    "drizzle-orm": "^1.0.0-rc.4",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.22.0",
     "picocolors": "^1.1.1",

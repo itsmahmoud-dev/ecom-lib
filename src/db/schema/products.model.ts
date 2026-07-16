@@ -1,6 +1,6 @@
-import { pgTable } from "drizzle-orm/pg-core";
+import { snakeCase } from "drizzle-orm/pg-core";
 
-export const products = pgTable("products", (t) => ({
+export const products = snakeCase.table("products", (t) => ({
   id: t.uuid().primaryKey().defaultRandom(),
 
   name: t.text().notNull(),
@@ -10,8 +10,6 @@ export const products = pgTable("products", (t) => ({
   active: t.boolean().default(false).notNull(),
 
   description: t.text().notNull(),
-
-  attributes: t.jsonb().notNull().$type<Record<string, string>>(),
 
   createdAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
 

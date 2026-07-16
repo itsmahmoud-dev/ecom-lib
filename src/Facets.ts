@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 
-import { facets } from "./models/facets.model";
+import { facets } from "./db/schema/facets.model";
 import { OperError } from "./lib/OperError";
 import { FacetErrorCodes, handleError, logMessage } from "./lib/errors";
 
@@ -19,10 +19,13 @@ export class Facets {
    * @returns array of facets matching the key
    */
   async getFacetsByKey(key: string) {
-    const facets = await this.store.db.query.facets.findMany({
-      where: (f, { eq }) => eq(f.key, key),
+    return await this.store.db.query.facets.findMany({
+      where: { key },
     });
-    return facets;
+  }
+
+  async getFacetsByParent(parentId: string) {
+    return await this.store.db.query.facets.findMany({ where: { parentId } });
   }
 
   /**
@@ -32,11 +35,11 @@ export class Facets {
    * @returns The new facet
    * @throws {OperError} `F000` (`FacetAlreadyExists`) if the facet already exists
    */
-  async addFacet(key: string, value: string, type: string) {
+  async addFacet(params: Omit<typeof facets.$inferInsert, "id" | "createdAt">) {
     try {
       const [facet] = await this.store.db
         .insert(facets)
-        .values({ key, value, type })
+        .values({ ...params })
         .returning();
 
       return facet;
@@ -52,9 +55,12 @@ export class Facets {
    * @throws {OperError} `F001` (`FacetNotFound`) if the facet is not found
    */
   async removeFacet(id: string) {
-    const facet = await this.store.db.query.facets.findFirst({
-      where: (f, { eq }) => eq(f.id, id),
-    });
+    const [facet] = await this.store.db
+      .delete(facets)
+      .where(eq(facets.id, id))
+      .returning();
+
+    console.log(facet);
 
     if (!facet) {
       logMessage(
@@ -67,7 +73,5 @@ export class Facets {
         cause: `Facet with id (${id}) does not exist`,
       });
     }
-
-    await this.store.db.delete(facets).where(eq(facets.id, id));
   }
 }

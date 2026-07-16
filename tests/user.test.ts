@@ -3,7 +3,8 @@ import { store } from ".";
 import { faker } from "@faker-js/faker";
 import { OperError } from "../src/lib/OperError";
 import { UserErrorCodes } from "../src/lib/errors";
-import { hashPassword, verifyPassword, users } from "../src/models";
+import { users } from "../src/db/schema";
+import { verifyPassword, hashPassword } from "../src/lib/string";
 
 test("Get user by id", async () => {
   const [user] = await store.db
@@ -95,7 +96,9 @@ test("Verify user", async () => {
   await store.users.verifyUser(user!.otp);
 
   const updatedUser = await store.db.query.users.findFirst({
-    where: (u, { eq }) => eq(u.id, user!.id),
+    where: {
+      id: user.id!,
+    },
   });
 
   expect(updatedUser).toBeDefined();
@@ -289,7 +292,9 @@ test("Request email change", async () => {
   expect(otp).toEqual(expect.any(String));
 
   const dbUser = await store.db.query.users.findFirst({
-    where: (u, { eq }) => eq(u.id, user!.id),
+    where: {
+      id: user!.id,
+    },
   });
 
   expect(dbUser!.emailChangeOtp).toBe(otp);
@@ -337,7 +342,9 @@ test("Change email", async () => {
   expect(updatedUser!.email).toBe(newEmail);
 
   const dbUser = await store.db.query.users.findFirst({
-    where: (u, { eq }) => eq(u.id, user!.id),
+    where: {
+      id: user!.id,
+    },
   });
 
   expect(dbUser!.emailChangeOtp).toBeNull();
@@ -407,7 +414,9 @@ test("Change email with expired OTP", async () => {
   });
 
   const dbUser = await store.db.query.users.findFirst({
-    where: (u, { eq }) => eq(u.id, user!.id),
+    where: {
+      id: user!.id,
+    },
   });
 
   expect(dbUser!.emailChangeOtp).toBeNull();
@@ -502,7 +511,7 @@ test("Change password", async () => {
   await store.users.changePassword(user!.id, password, newPassword);
 
   const dbUser = await store.db.query.users.findFirst({
-    where: (u, { eq }) => eq(u.id, user!.id),
+    where: { id: user!.id },
   });
 
   expect(dbUser).toBeDefined();
@@ -573,7 +582,7 @@ test("Request password reset", async () => {
   expect(resetUser.email).toBe(user!.email);
 
   const dbUser = await store.db.query.users.findFirst({
-    where: (u, { eq }) => eq(u.id, user!.id),
+    where: { id: user!.id },
   });
 
   expect(dbUser!.passwordResetToken).toBe(token);
@@ -613,7 +622,9 @@ test("Reset password", async () => {
   await store.users.resetPassword(token, newPassword);
 
   const dbUser = await store.db.query.users.findFirst({
-    where: (u, { eq }) => eq(u.id, user!.id),
+    where: {
+      id: user!.id,
+    },
   });
 
   expect(dbUser).toBeDefined();

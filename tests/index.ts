@@ -1,7 +1,7 @@
 import { Store } from "../src";
 import { afterAll } from "bun:test";
 import { $ } from "bun";
-import { facets, products, users } from "../src/models";
+import { facets, products, users } from "../src/db/schema";
 
 export const store = new Store({
   name: "Test Store",
