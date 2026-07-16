@@ -1,11 +1,11 @@
-import { expect, test } from "bun:test";
+import { afterAll, expect, test } from "bun:test";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
 import { OperError } from "../src/lib/OperError";
 import { ProductErrorCodes } from "../src/lib/errors";
-import { products } from "../src/db/schema";
+import { facets, images, products } from "../src/db/schema";
 
 function makeImageFile(filename: string, type: string): File {
   const buffer = readFileSync(join(import.meta.dir, filename));
@@ -75,15 +75,15 @@ test("Add a product with red and blue variants and images", async () => {
 
   expect(redVariant).toMatchObject({ price: 19.99, discount: 0 });
   expect(redVariant!.images).toHaveLength(1);
-  expect(
-    existsSync(`${store.dataPath}${redVariant!.images[0]!.path}`),
-  ).toBe(true);
+  expect(existsSync(`${store.dataPath}${redVariant!.images[0]!.path}`)).toBe(
+    true,
+  );
 
   expect(blueVariant).toMatchObject({ price: 24.99, discount: 5 });
   expect(blueVariant!.images).toHaveLength(1);
-  expect(
-    existsSync(`${store.dataPath}${blueVariant!.images[0]!.path}`),
-  ).toBe(true);
+  expect(existsSync(`${store.dataPath}${blueVariant!.images[0]!.path}`)).toBe(
+    true,
+  );
 });
 
 test("Update a product's fields, attributes, variants and images", async () => {
@@ -175,9 +175,7 @@ test("Update a product's fields, attributes, variants and images", async () => {
   const updatedVariant = updated!.variants.find(
     (v) => v.id === originalVariant.id,
   )!;
-  const newVariant = updated!.variants.find(
-    (v) => v.id !== originalVariant.id,
-  )!;
+  const newVariant = updated!.variants.find((v) => v.id !== originalVariant.id)!;
 
   expect(updatedVariant).toMatchObject({ price: 29.99, discount: 0 });
   expect(updatedVariant.attributes).toHaveLength(1);
@@ -195,9 +193,9 @@ test("Update a product's fields, attributes, variants and images", async () => {
   expect(updatedImage!.attributes[0]!.id).toBe(blueFacet!.id);
 
   expect(newVariant.images).toHaveLength(1);
-  expect(
-    existsSync(`${store.dataPath}${newVariant.images[0]!.path}`),
-  ).toBe(true);
+  expect(existsSync(`${store.dataPath}${newVariant.images[0]!.path}`)).toBe(
+    true,
+  );
 });
 
 test("Add a product with a duplicate barcode", async () => {
@@ -322,4 +320,11 @@ test("Update an image that doesn't exist", async () => {
     message: expect.any(String),
     cause: expect.any(String),
   });
+});
+
+afterAll(async () => {
+  await store.db.delete(products);
+  await store.db.delete(images);
+  await store.db.delete(facets);
+  await Bun.$`rm -f ${store.dataPath}/images/products/*`.quiet().nothrow();
 });

@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { afterAll, expect, test } from "bun:test";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
 import { OperError } from "../src/lib/OperError";
@@ -671,4 +671,8 @@ test("Reset password with an expired token", async () => {
     message: expect.any(String),
     cause: expect.any(String),
   });
+});
+
+afterAll(async () => {
+  await store.db.delete(users);
 });

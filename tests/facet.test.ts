@@ -1,8 +1,9 @@
-import { expect, test } from "bun:test";
+import { afterAll, expect, test } from "bun:test";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
 import { OperError } from "../src/lib/OperError";
 import { FacetErrorCodes } from "../src/lib/errors";
+import { facets } from "../src/db/schema";
 
 test("Get facets by key", async () => {
   const key = faker.string.alphanumeric(12);
@@ -91,4 +92,8 @@ test("Remove a facet that does not exist", async () => {
     message: expect.any(String),
     cause: expect.any(String),
   });
+});
+
+afterAll(async () => {
+  await store.db.delete(facets);
 });
