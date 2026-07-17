@@ -1,6 +1,6 @@
 import crypto, { KeyObject } from "crypto";
 import { sign } from "jsonwebtoken";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { OperError } from "./lib/OperError";
 import { logMessage, UserErrorCodes, handleError } from "./lib/errors";
@@ -234,7 +234,7 @@ export class Users {
     }
 
     const accessToken = sign({ id: user.id }, this.store.JWT_SECRET, {
-      jwtid: user.accessTokenId,
+      jwtid: user.accessTokenId.toString(),
       algorithm: "HS512",
       expiresIn: rememberMe ? "30d" : "1d",
     });
@@ -492,7 +492,7 @@ export class Users {
           email: newEmail,
           emailChangeOtp: null,
           emailChangeOtpExpiresAt: null,
-          accessTokenId: (+user.accessTokenId + 1).toString(),
+          accessTokenId: sql`(${users.accessTokenId} + 1) % 1000`,
         })
         .where(eq(users.id, id))
         .returning({
@@ -559,7 +559,7 @@ export class Users {
       .update(users)
       .set({
         password: hashPassword(newPassword),
-        accessTokenId: (+user.accessTokenId + 1).toString(),
+        accessTokenId: sql`(${users.accessTokenId} + 1) % 1000`,
       })
       .where(eq(users.id, id));
   }
@@ -660,7 +660,7 @@ export class Users {
         password: hashPassword(newPassword),
         passwordResetToken: null,
         passwordResetTokenExpiresAt: null,
-        accessTokenId: (+user.accessTokenId + 1).toString(),
+        accessTokenId: sql`(${users.accessTokenId} + 1) % 1000`,
       })
       .where(eq(users.id, user.id));
   }

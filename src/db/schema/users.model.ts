@@ -1,43 +1,53 @@
-import { pgEnum, snakeCase } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { check, pgEnum, snakeCase } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("role", ["admin", "user", "customer"]);
 
 export const userStatusEnum = pgEnum("status", ["verified", "pending"]);
 
-export const users = snakeCase.table("users", (t) => ({
-  id: t.uuid().primaryKey().defaultRandom(),
+export const users = snakeCase.table(
+  "users",
+  (t) => ({
+    id: t.uuid().primaryKey().defaultRandom(),
 
-  name: t.text().notNull(),
+    name: t.text().notNull(),
 
-  email: t.text().notNull().unique(),
+    email: t.text().notNull().unique(),
 
-  phoneNumber: t.text().unique(),
+    phoneNumber: t.text().unique(),
 
-  password: t.text().notNull(),
+    password: t.text().notNull(),
 
-  role: userRoleEnum().notNull().default("customer"),
+    role: userRoleEnum().notNull().default("customer"),
 
-  status: userStatusEnum().notNull().default("pending"),
+    status: userStatusEnum().notNull().default("pending"),
 
-  verificationOtp: t.varchar({ length: 6 }),
+    verificationOtp: t.varchar({ length: 6 }),
 
-  verificationOtpExpiresAt: t.timestamp({ withTimezone: true }),
+    verificationOtpExpiresAt: t.timestamp({ withTimezone: true }),
 
-  emailChangeOtp: t.varchar({ length: 6 }),
+    emailChangeOtp: t.varchar({ length: 6 }),
 
-  emailChangeOtpExpiresAt: t.timestamp({ withTimezone: true }),
+    emailChangeOtpExpiresAt: t.timestamp({ withTimezone: true }),
 
-  passwordResetToken: t.text(),
+    passwordResetToken: t.text(),
 
-  accessTokenId: t.text().default("1").notNull(),
+    passwordResetTokenExpiresAt: t.timestamp({ withTimezone: true }),
 
-  passwordResetTokenExpiresAt: t.timestamp({ withTimezone: true }),
+    accessTokenId: t.numeric({ mode: "number" }).notNull().default(0),
 
-  createdAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
+    createdAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
 
-  updatedAt: t
-    .timestamp({ withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-}));
+    updatedAt: t
+      .timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  }),
+  (t) => [
+    check(
+      "access_token_id_range",
+      sql`${t.accessTokenId} >= 0 AND ${t.accessTokenId} < 1000`,
+    ),
+  ],
+);
