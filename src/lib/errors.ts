@@ -22,6 +22,7 @@ export enum ProductErrorCodes {
   ProductNotFound = "P601",
   VariantNotFound = "P602",
   ImageNotFound = "P603",
+  VersionMismatch = "P604",
 }
 
 export enum FacetErrorCodes {

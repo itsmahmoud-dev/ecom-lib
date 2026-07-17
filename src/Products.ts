@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import {
   images,
@@ -42,6 +42,7 @@ type UpdateProductParams = {
     active?: boolean;
     description?: string;
     attributes?: string[];
+    version: number;
   };
   v?: {
     id?: string;
@@ -218,6 +219,19 @@ export class Products {
           });
         }
 
+        if (product.version !== params.p.version) {
+          logMessage(
+            "info",
+            `Attempt to update product with id (${params.p.id}) failed becuase the version don't match`,
+          );
+          throw new OperError({
+            code: ProductErrorCodes.VersionMismatch,
+            message: "Please refresh and update again",
+            cause:
+              "Someone updated this product while the old one was still loaded before",
+          });
+        }
+
         // if found edit its fields
         const { attributes, id, ...productFieldsToUpdate } = params.p;
 
@@ -225,7 +239,10 @@ export class Products {
         if (Object.keys(productFieldsToUpdate).length) {
           await tx
             .update(products)
-            .set(productFieldsToUpdate)
+            .set({
+              ...productFieldsToUpdate,
+              version: sql`(${product.version} + 1) % 1000`,
+            })
             .where(eq(products.id, id));
         }
 

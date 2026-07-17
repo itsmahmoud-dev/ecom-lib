@@ -140,6 +140,7 @@ test("Update a product's fields, attributes, variants and images", async () => {
       id: created!.id,
       name: newName,
       attributes: [blueFacet!.id],
+      version: created!.version,
     },
     v: [
       {
@@ -229,7 +230,11 @@ test("Add a product with a duplicate barcode", async () => {
 
 test("Update a product that doesn't exist", async () => {
   const result = store.products.updateproduct({
-    p: { id: faker.string.uuid(), name: faker.commerce.productName() },
+    p: {
+      id: faker.string.uuid(),
+      name: faker.commerce.productName(),
+      version: faker.number.int(),
+    },
   });
 
   expect(result).rejects.toThrow(OperError);
@@ -262,7 +267,7 @@ test("Update a product with a duplicate barcode", async () => {
   expect(product).toBeDefined();
 
   const result = store.products.updateproduct({
-    p: { id: product!.id, barcode },
+    p: { id: product!.id, barcode, version: product!.version },
   });
 
   expect(result).rejects.toThrow(OperError);
@@ -285,7 +290,7 @@ test("Update a variant that doesn't exist", async () => {
   expect(product).toBeDefined();
 
   const result = store.products.updateproduct({
-    p: { id: product!.id },
+    p: { id: product!.id, version: product!.version },
     v: [{ id: faker.string.uuid(), price: 19.99 }],
   });
 
@@ -310,13 +315,38 @@ test("Update an image that doesn't exist", async () => {
   expect(product).toBeDefined();
 
   const result = store.products.updateproduct({
-    p: { id: product!.id },
+    p: { id: product!.id, version: product!.version },
     i: [{ id: faker.string.uuid(), attributes: [] }],
   });
 
   expect(result).rejects.toThrow(OperError);
   expect(result).rejects.toMatchObject({
     code: ProductErrorCodes.ImageNotFound,
+    message: expect.any(String),
+    cause: expect.any(String),
+  });
+});
+
+test("Update a product with the wrong version", async () => {
+  const [product] = await store.db
+    .insert(products)
+    .values({
+      name: faker.commerce.productName(),
+      active: true,
+      description: faker.commerce.productDescription(),
+    })
+    .returning();
+
+  expect(product).toBeDefined();
+
+  const result = store.products.updateproduct({
+    p: { id: product!.id, version: faker.number.int() },
+    i: [{ id: faker.string.uuid(), attributes: [] }],
+  });
+
+  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toMatchObject({
+    code: ProductErrorCodes.VersionMismatch,
     message: expect.any(String),
     cause: expect.any(String),
   });
