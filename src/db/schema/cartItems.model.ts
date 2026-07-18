@@ -1,4 +1,4 @@
-import { check, snakeCase } from "drizzle-orm/pg-core";
+import { check, snakeCase, unique } from "drizzle-orm/pg-core";
 import { users } from "./users.model";
 import { products } from "./products.model";
 import { productVariants } from "./productVariants.model";
@@ -34,5 +34,8 @@ export const cartItems = snakeCase.table(
       .defaultNow()
       .$onUpdate(() => new Date()),
   }),
-  (t) => [check("quantity_min", sql`${t.quantity} >= 1`)],
+  (t) => [
+    check("min_quantity", sql`${t.quantity} >= 1`),
+    unique().on(t.userId, t.productId, t.variantId),
+  ],
 );
