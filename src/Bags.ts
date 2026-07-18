@@ -1,4 +1,5 @@
 import { cartItems } from "./db/schema";
+import { handleError } from "./lib/errors";
 import type { Store } from "./Store";
 
 export class Bags {
@@ -25,9 +26,19 @@ export class Bags {
   }
 
   async addCartItem(userId: string, productId: string, variantId: string) {
-    return await this.store.db
-      .insert(cartItems)
-      .values({ productId, userId, variantId })
-      .returning();
+    try {
+      const item = await this.store.db
+        .insert(cartItems)
+        .values({ productId, userId, variantId })
+        .returning();
+
+      if (!item) {
+        throw new Error("Error inserting cart item");
+      }
+
+      return item;
+    } catch (e) {
+      handleError(e);
+    }
   }
 }
