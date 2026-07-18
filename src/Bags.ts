@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { cartItems } from "./db/schema";
-import { BagItemsError, handleError } from "./lib/errors";
+import { CartItemErrorsCodes, handleError } from "./lib/errors";
 import type { Store } from "./Store";
 import { OperError } from "./lib/OperError";
 
@@ -52,7 +52,7 @@ export class Bags {
 
     if (!item) {
       throw new OperError({
-        code: BagItemsError.BagItemNotFound,
+        code: CartItemErrorsCodes.CartItemNotFound,
         message: "Bag item was not found",
       });
     }
@@ -69,7 +69,7 @@ export class Bags {
 
     if (!item) {
       throw new OperError({
-        code: BagItemsError.BagItemNotFound,
+        code: CartItemErrorsCodes.CartItemNotFound,
         message: "Bag item was not found",
       });
     }
@@ -86,7 +86,7 @@ export class Bags {
 
     if (!item) {
       throw new OperError({
-        code: BagItemsError.BagItemNotFound,
+        code: CartItemErrorsCodes.CartItemNotFound,
         message: "Bag item was not found",
       });
     }

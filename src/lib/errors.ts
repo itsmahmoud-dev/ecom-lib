@@ -30,8 +30,9 @@ export enum FacetErrorCodes {
   FacetNotFound = "F001",
 }
 
-export enum BagItemsError {
-  BagItemNotFound = "B000",
+export enum CartItemErrorsCodes {
+  CartItemNotFound = "B000",
+  QuantityInvalid = "B001",
 }
 
 export function handleError(e: unknown): never {
