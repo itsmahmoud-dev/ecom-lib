@@ -97,4 +97,28 @@ export class Bags {
   async clearItems(userId: string) {
     await this.store.db.delete(cartItems).where(eq(cartItems.userId, userId));
   }
+
+  async updateQuantity(id: string, quantity: number) {
+    if (quantity <= 0) {
+      throw new OperError({
+        code: CartItemErrorsCodes.QuantityInvalid,
+        message: "Quantity has to a positive number",
+      });
+    }
+
+    const [item] = await this.store.db
+      .update(cartItems)
+      .set({ quantity })
+      .where(eq(cartItems.id, id))
+      .returning();
+
+    if (!item) {
+      throw new OperError({
+        code: CartItemErrorsCodes.CartItemNotFound,
+        message: "Bag item was not found",
+      });
+    }
+
+    return item;
+  }
 }
