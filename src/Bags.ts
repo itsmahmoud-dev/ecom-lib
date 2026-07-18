@@ -61,7 +61,7 @@ export class Bags {
   }
 
   async incrementQuantity(id: string) {
-    const item = await this.store.db
+    const [item] = await this.store.db
       .update(cartItems)
       .set({ quantity: sql`${cartItems.quantity} + 1` })
       .where(eq(cartItems.id, id))
@@ -78,7 +78,7 @@ export class Bags {
   }
 
   async decrementQuantity(id: string) {
-    const item = await this.store.db
+    const [item] = await this.store.db
       .update(cartItems)
       .set({ quantity: sql`${cartItems.quantity} - 1` })
       .where(eq(cartItems.id, id))
