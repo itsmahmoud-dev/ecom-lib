@@ -18,11 +18,11 @@ export enum UserErrorCodes {
 }
 
 export enum ProductErrorCodes {
-  BarcodeAlreadyExists = "P600",
-  ProductNotFound = "P601",
-  VariantNotFound = "P602",
-  ImageNotFound = "P603",
-  VersionMismatch = "P604",
+  BarcodeAlreadyExists = "P000",
+  ProductNotFound = "P001",
+  VariantNotFound = "P002",
+  ImageNotFound = "P003",
+  VersionMismatch = "P004",
 }
 
 export enum FacetErrorCodes {
