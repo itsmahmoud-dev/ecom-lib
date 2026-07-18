@@ -1,4 +1,5 @@
 export * from "./addresses.model";
+export * from "./cartItems.model";
 export * from "./facets.model";
 export * from "./images.model";
 export * from "./imagesToFacets.model";

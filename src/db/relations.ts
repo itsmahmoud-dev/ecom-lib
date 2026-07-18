@@ -6,6 +6,10 @@ export const relations = defineRelations(schema, (r) => ({
   users: {
     // one user can have many addresses
     addresses: r.many.addresses(),
+    cartItems: r.many.cartItems({
+      from: r.users.id,
+      to: r.cartItems.userId,
+    }),
   },
   addresses: {
     // one address can only belong to one user
@@ -24,6 +28,10 @@ export const relations = defineRelations(schema, (r) => ({
     attributes: r.many.facets({
       from: r.products.id.through(r.productsToFacets.productId),
       to: r.facets.id.through(r.productsToFacets.facetId),
+    }),
+    inCarts: r.many.cartItems({
+      from: r.products.id,
+      to: r.cartItems.productId,
     }),
   },
   productVariants: {
@@ -45,6 +53,10 @@ export const relations = defineRelations(schema, (r) => ({
         r.productVariantsToImages.productVariantId,
       ),
       to: r.images.id.through(r.productVariantsToImages.imageId),
+    }),
+    inCarts: r.many.cartItems({
+      from: r.productVariants.id,
+      to: r.cartItems.variantId,
     }),
   },
   facets: {
@@ -71,6 +83,23 @@ export const relations = defineRelations(schema, (r) => ({
     attributes: r.many.facets({
       from: r.images.id.through(r.imagesToFacets.imageId),
       to: r.facets.id.through(r.imagesToFacets.facetId),
+    }),
+  },
+  cartItems: {
+    // one cart item can have one product
+    product: r.one.products({
+      from: r.cartItems.productId,
+      to: r.products.id,
+    }),
+    // one cart item can have one variant
+    variant: r.one.productVariants({
+      from: r.cartItems.variantId,
+      to: r.productVariants.id,
+    }),
+    // one cart item can have one user
+    user: r.one.users({
+      from: r.cartItems.userId,
+      to: r.users.id,
     }),
   },
 }));
