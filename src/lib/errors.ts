@@ -30,6 +30,10 @@ export enum FacetErrorCodes {
   FacetNotFound = "F001",
 }
 
+export enum BagItemsError {
+  BagItemNotFound = "B000",
+}
+
 export function handleError(e: unknown): never {
   if (isUniqueViolationError(e)) {
     const [key, value] = extractKeyValue(e.cause.detail);

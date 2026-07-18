@@ -1,6 +1,8 @@
+import { eq } from "drizzle-orm";
 import { cartItems } from "./db/schema";
-import { handleError } from "./lib/errors";
+import { BagItemsError, handleError } from "./lib/errors";
 import type { Store } from "./Store";
+import { OperError } from "./lib/OperError";
 
 export class Bags {
   store: Store;
@@ -40,5 +42,21 @@ export class Bags {
     } catch (e) {
       handleError(e);
     }
+  }
+
+  async removeItem(id: string) {
+    const [item] = await this.store.db
+      .delete(cartItems)
+      .where(eq(cartItems.id, id))
+      .returning();
+
+    if (!item) {
+      throw new OperError({
+        code: BagItemsError.BagItemNotFound,
+        message: "Bag item was not found",
+      });
+    }
+
+    return item.id;
   }
 }
