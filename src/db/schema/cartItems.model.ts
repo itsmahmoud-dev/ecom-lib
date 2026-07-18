@@ -24,7 +24,7 @@ export const cartItems = snakeCase.table(
       .notNull()
       .references(() => productVariants.id, { onDelete: "cascade" }),
 
-    quantity: t.integer().default(1),
+    quantity: t.integer().notNull().default(1),
 
     createdAt: t.timestamp({ withTimezone: true }).notNull().defaultNow(),
 
