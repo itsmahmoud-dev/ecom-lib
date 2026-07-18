@@ -18,6 +18,12 @@ export class Bags {
     });
   }
 
+  async getItemsByVariant(variantId: string) {
+    return await this.store.db.query.cartItems.findMany({
+      where: { variantId },
+    });
+  }
+
   async addCartItem(userId: string, productId: string, variantId: string) {
     return await this.store.db
       .insert(cartItems)
