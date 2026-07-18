@@ -94,10 +94,6 @@ export class Bags {
     return item;
   }
 
-  async clearItems(userId: string) {
-    await this.store.db.delete(cartItems).where(eq(cartItems.userId, userId));
-  }
-
   async updateQuantity(id: string, quantity: number) {
     if (quantity <= 0) {
       throw new OperError({
@@ -120,5 +116,32 @@ export class Bags {
     }
 
     return item;
+  }
+
+  async clearItems(userId: string) {
+    await this.store.db.delete(cartItems).where(eq(cartItems.userId, userId));
+  }
+
+  async importItems(
+    userId: string,
+    items: { productId: string; variantId: string; quantity: number }[],
+  ) {
+    try {
+      const newItems = await this.store.db
+        .insert(cartItems)
+        .values(
+          items.map((el) => ({
+            userId,
+            productId: el.productId,
+            quantity: el.quantity,
+            variantId: el.variantId,
+          })),
+        )
+        .returning();
+
+      return newItems;
+    } catch (e) {
+      handleError(e);
+    }
   }
 }
