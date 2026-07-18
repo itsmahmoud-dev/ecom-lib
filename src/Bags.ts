@@ -8,6 +8,10 @@ export class Bags {
     this.store = store;
   }
 
+  async getItemsByUser(userId: string) {
+    return await this.store.db.query.cartItems.findMany({ where: { userId } });
+  }
+
   async addCartItem(userId: string, productId: string, variantId: string) {
     return await this.store.db
       .insert(cartItems)
