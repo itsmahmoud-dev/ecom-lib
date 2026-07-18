@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { cartItems } from "./db/schema";
 import { BagItemsError, handleError } from "./lib/errors";
 import type { Store } from "./Store";
@@ -58,5 +58,22 @@ export class Bags {
     }
 
     return item.id;
+  }
+
+  async incrementQuantity(id: string) {
+    const item = await this.store.db
+      .update(cartItems)
+      .set({ quantity: sql`${cartItems.quantity} + 1` })
+      .where(eq(cartItems.id, id))
+      .returning();
+
+    if (!item) {
+      throw new OperError({
+        code: BagItemsError.BagItemNotFound,
+        message: "Bag item was not found",
+      });
+    }
+
+    return item;
   }
 }
