@@ -93,4 +93,8 @@ export class Bags {
 
     return item;
   }
+
+  async clearItems(userId: string) {
+    await this.store.db.delete(cartItems).where(eq(cartItems.userId, userId));
+  }
 }
