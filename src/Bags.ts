@@ -12,6 +12,12 @@ export class Bags {
     return await this.store.db.query.cartItems.findMany({ where: { userId } });
   }
 
+  async getItemsByProduct(productId: string) {
+    return await this.store.db.query.cartItems.findMany({
+      where: { productId },
+    });
+  }
+
   async addCartItem(userId: string, productId: string, variantId: string) {
     return await this.store.db
       .insert(cartItems)
