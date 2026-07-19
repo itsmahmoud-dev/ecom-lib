@@ -136,6 +136,42 @@ export function handleError(e: unknown): never {
     }
   }
 
+  if (isForeignKeyViolation(e)) {
+    const [key, value] = e.cause.detail;
+    if (e.cause.constraint === "cartItems_user_id_users_id_fkey") {
+      throw new OperationalError({
+        code: UserErrorCodes.UserNotFound,
+        severity: "warning",
+        userMessage: "User was not found",
+        logMessage: "Adding a cart item failed because the user was not found",
+        key,
+        value,
+      });
+    }
+    if (e.cause.constraint === "cartItems_variant_id_productVariant_id_fkey") {
+      throw new OperationalError({
+        code: ProductErrorCodes.VariantNotFound,
+        severity: "warning",
+        userMessage: "One of the variants was not found",
+        logMessage:
+          "Adding a cart item failed because one of the variants was not found",
+        key,
+        value,
+      });
+    }
+    if (e.cause.constraint === "cartItems_product_id_products_id_fkey") {
+      throw new OperationalError({
+        code: ProductErrorCodes.ProductNotFound,
+        severity: "warning",
+        userMessage: "One of the variants was not found",
+        logMessage:
+          "Adding a cart item failed because the product was not found",
+        key,
+        value,
+      });
+    }
+  }
+
   throw e;
 }
 
@@ -167,6 +203,21 @@ export function isConstraintViolationError(
     "table" in e.cause &&
     "constraint" in e.cause &&
     e.cause.errno === "23514"
+  );
+}
+
+export function isForeignKeyViolation(e: unknown): e is DrizzleQueryError & {
+  cause: { errno: string; detail: string; constraint: string; table: string };
+} {
+  return (
+    e instanceof DrizzleQueryError &&
+    "cause" in e &&
+    typeof e.cause === "object" &&
+    e.cause !== null &&
+    "errno" in e.cause &&
+    "table" in e.cause &&
+    "constraint" in e.cause &&
+    e.cause.errno === "23503"
   );
 }
 

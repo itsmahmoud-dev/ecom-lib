@@ -2,7 +2,12 @@ import { expect, test } from "bun:test";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
 import { cartItems, products, productVariants, users } from "../src/db/schema";
-import { CartItemErrorsCodes, OperationalError } from "../src/lib/errors";
+import {
+  CartItemErrorsCodes,
+  OperationalError,
+  ProductErrorCodes,
+  UserErrorCodes,
+} from "../src/lib/errors";
 
 async function makeUser() {
   const [user] = await store.db
@@ -67,6 +72,53 @@ test("Add a duplicate cart item for the same user, product and variant", async (
 
   expect(result).rejects.toMatchObject({
     code: CartItemErrorsCodes.CartItemAlreadyExists,
+  });
+});
+
+test("Add a cart item for a user that does not exist", async () => {
+  const { product, variant } = await makeVariant();
+
+  const result = store.cartItems.addCartItem(
+    faker.string.uuid(),
+    product.id,
+    variant.id,
+  );
+
+  expect(result).rejects.toThrow();
+
+  expect(result).rejects.toMatchObject({ code: UserErrorCodes.UserNotFound });
+});
+
+test("Add a cart item for a variant that does not exist", async () => {
+  const user = await makeUser();
+  const { product } = await makeVariant();
+
+  const result = store.cartItems.addCartItem(
+    user.id,
+    product.id,
+    faker.string.uuid(),
+  );
+
+  expect(result).rejects.toThrow();
+
+  expect(result).rejects.toMatchObject({
+    code: ProductErrorCodes.VariantNotFound,
+  });
+});
+
+test("Add a cart item for a product that does not exist", async () => {
+  const user = await makeUser();
+
+  const result = store.cartItems.addCartItem(
+    user.id,
+    faker.string.uuid(),
+    faker.string.uuid(),
+  );
+
+  expect(result).rejects.toThrow();
+
+  expect(result).rejects.toMatchObject({
+    code: ProductErrorCodes.ProductNotFound,
   });
 });
 
