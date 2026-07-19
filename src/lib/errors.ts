@@ -36,13 +36,14 @@ export enum FacetErrorCodes {
 export enum CartItemErrorsCodes {
   CartItemNotFound = "B000",
   QuantityInvalid = "B001",
+  CartItemAlreadyExists = "B002",
 }
 
 type args = {
   code: string;
   severity: ErrorSeverity;
   userMessage: string;
-  logMessage?: string;
+  logMessage: string;
   cause?: string;
   key?: string | string[];
   value?: string | string[];
@@ -52,16 +53,18 @@ export class OperationalError extends Error {
   code: string;
   severity: ErrorSeverity;
   userMessage: string;
-  logMessage?: string;
+  logMessage: string;
   override cause?: string;
   key?: string | string[];
   value?: string | string[];
+  override message: string;
 
   constructor(params: args) {
     super();
     this.code = params.code;
     this.severity = params.severity;
     this.userMessage = params.userMessage;
+    this.message = params.logMessage;
     this.logMessage = params.logMessage;
     this.cause = params.cause;
     this.key = params.key;
@@ -103,6 +106,34 @@ export function handleError(e: unknown): never {
         });
       }
     }
+    if (e.cause.table === "cartItems") {
+      if (
+        key?.includes("user_id") ||
+        key?.includes("product_id") ||
+        key?.includes("variant_id")
+      ) {
+        throw new OperationalError({
+          code: CartItemErrorsCodes.CartItemAlreadyExists,
+          severity: "warning",
+          userMessage: "Cart item already exists",
+          logMessage: "Adding cart item failed because it already exists",
+          key: key.split(","),
+          value: value?.split(","),
+        });
+      }
+    }
+  }
+
+  if (isConstraintViolationError(e)) {
+    if (e.cause.table === "cartItems" && e.cause.constraint === "min_quantity") {
+      throw new OperationalError({
+        code: CartItemErrorsCodes.QuantityInvalid,
+        severity: "warning",
+        userMessage: "Quantity should be a positive number",
+        logMessage:
+          "Updating/Decrementing cart item quantity failed because the quantity is not positive",
+      });
+    }
   }
 
   throw e;
@@ -119,6 +150,23 @@ export function isUniqueViolationError(e: unknown): e is DrizzleQueryError & {
     "errno" in e.cause &&
     "table" in e.cause &&
     e.cause.errno === "23505"
+  );
+}
+
+export function isConstraintViolationError(
+  e: unknown,
+): e is DrizzleQueryError & {
+  cause: { errno: string; detail: string; constraint: string; table: string };
+} {
+  return (
+    e instanceof DrizzleQueryError &&
+    "cause" in e &&
+    typeof e.cause === "object" &&
+    e.cause !== null &&
+    "errno" in e.cause &&
+    "table" in e.cause &&
+    "constraint" in e.cause &&
+    e.cause.errno === "23514"
   );
 }
 
