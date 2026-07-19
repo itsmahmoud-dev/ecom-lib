@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { afterAll, expect, test } from "bun:test";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
 import { cartItems, products, productVariants, users } from "../src/db/schema";
@@ -333,4 +333,10 @@ test("Import cart items with at least one duplicate", async () => {
   expect(result).rejects.toMatchObject({
     code: CartItemErrorsCodes.CartItemAlreadyExists,
   });
+});
+
+afterAll(async () => {
+  await store.db.delete(products);
+  await store.db.delete(productVariants);
+  await store.db.delete(users);
 });
