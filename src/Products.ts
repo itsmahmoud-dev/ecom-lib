@@ -10,8 +10,8 @@ import {
   productVariantsToFacets,
   productVariantsToImages,
 } from "./db/schema";
-import { handleError, logMessage, ProductErrorCodes } from "./lib/errors";
-import { OperError } from "./lib/OperError";
+import { handleError, ProductErrorCodes, OperationalError } from "./lib/errors";
+
 import { diffArrays } from "./lib/array";
 import type { Store } from "./Store";
 
@@ -80,11 +80,12 @@ export class Products {
           .returning();
 
         if (!product) {
-          logMessage(
-            "error",
-            `Attempt to insert a product failed for unknown reason`,
-          );
-          throw new Error("Error adding product");
+          throw new OperationalError({
+            code: "",
+            severity: "error",
+            logMessage: "Error inserting a product",
+            userMessage: "Something went wrong",
+          });
         }
 
         // assigning attributes for the product
@@ -107,11 +108,12 @@ export class Products {
             .returning();
 
           if (!variant) {
-            logMessage(
-              "error",
-              `Attempt to insert a product variant failed for unknown reason`,
-            );
-            throw new Error("Error adding variant");
+            throw new OperationalError({
+              code: "",
+              severity: "error",
+              logMessage: "Error inserting a product variant",
+              userMessage: "Something went wrong",
+            });
           }
 
           // assigning attributes for the variant
@@ -139,11 +141,12 @@ export class Products {
             .returning();
 
           if (!image) {
-            logMessage(
-              "error",
-              `Attempt to insert a product image failed for unknown reason`,
-            );
-            throw new Error("Error adding image");
+            throw new OperationalError({
+              code: "",
+              severity: "error",
+              logMessage: "Error inserting a variant image",
+              userMessage: "Something went wrong",
+            });
           }
 
           imageBuffersToSave.push({
@@ -208,27 +211,24 @@ export class Products {
 
         // if not found throw
         if (!product) {
-          logMessage(
-            "warn",
-            `Attempt to update product with id (${params.p.id}) failed because it doesn't exist`,
-          );
-          throw new OperError({
+          throw new OperationalError({
             code: ProductErrorCodes.ProductNotFound,
-            message: "Product was not found",
-            cause: `Product with id (${params.p.id}) does not exist`,
+            severity: "warning",
+            userMessage: "Product was not found",
+            logMessage: `Updating a product failed because it does not exist`,
+            key: "id",
+            value: params.p.id,
           });
         }
 
         if (product.version !== params.p.version) {
-          logMessage(
-            "info",
-            `Attempt to update product with id (${params.p.id}) failed becuase the version don't match`,
-          );
-          throw new OperError({
+          throw new OperationalError({
             code: ProductErrorCodes.VersionMismatch,
-            message: "Please refresh and update again",
+            severity: "info",
+            userMessage: "Please refresh and update again",
+            logMessage: "Updating a product failed because of version mismatch",
             cause:
-              "Someone updated this product while the old one was still loaded before",
+              "Product was updated by someone else after it loaded into the update form",
           });
         }
 
@@ -280,14 +280,13 @@ export class Products {
               const orignalVariant = product.variants.find((el) => el.id === id);
 
               if (!orignalVariant) {
-                logMessage(
-                  "warn",
-                  `Attempt to update variant with id (${id}) failed becuase it does not exist`,
-                );
-                throw new OperError({
+                throw new OperationalError({
                   code: ProductErrorCodes.VariantNotFound,
-                  message: "One of the variants was not found",
-                  cause: `Variant with id (${id}) does not exist`,
+                  severity: "warning",
+                  userMessage: "One of the variants was not found",
+                  logMessage: `Updating a variant failed because it does not exist`,
+                  key: "id",
+                  value: id,
                 });
               }
 
@@ -342,11 +341,12 @@ export class Products {
                 .returning();
 
               if (!newVariant) {
-                logMessage(
-                  "error",
-                  `Attempt to insert a product variant failed for unknown reason`,
-                );
-                throw new Error("Error adding variant");
+                throw new OperationalError({
+                  code: "",
+                  severity: "error",
+                  logMessage: "Error inserting a variant",
+                  userMessage: "Something went wrong",
+                });
               }
 
               // assigning attributes for the variant
@@ -375,14 +375,13 @@ export class Products {
                 .find((img) => img.id === id);
 
               if (!originalImage) {
-                logMessage(
-                  "warn",
-                  `Attempt to update image with id (${id}) failed becuase it does not exist`,
-                );
-                throw new OperError({
+                throw new OperationalError({
                   code: ProductErrorCodes.ImageNotFound,
-                  message: "One of the images was not found",
-                  cause: `Image with id (${id}) does not exist`,
+                  severity: "warning",
+                  userMessage: "One of the images was not found",
+                  logMessage: "Updating image failed because it does not exist",
+                  key: "id",
+                  value: id,
                 });
               }
 
@@ -426,11 +425,12 @@ export class Products {
                 .returning();
 
               if (!newImage) {
-                logMessage(
-                  "error",
-                  `Attempt to insert a variant image failed for unknown reason`,
-                );
-                throw new Error("Error adding image");
+                throw new OperationalError({
+                  code: "",
+                  severity: "error",
+                  logMessage: "Error inserting a product image",
+                  userMessage: "Something went wrong",
+                });
               }
 
               imageBuffersToSave.push({
@@ -478,14 +478,11 @@ export class Products {
       .returning({ id: products.id });
 
     if (!product) {
-      logMessage(
-        "warn",
-        `Attempt to delete product with id (${id}) failed because the product does not exist.`,
-      );
-      throw new OperError({
+      throw new OperationalError({
         code: ProductErrorCodes.ProductNotFound,
-        message: "Product does not exist",
-        cause: `Product with id (${id}) does not exist`,
+        severity: "warning",
+        userMessage: "Product was not found",
+        logMessage: "Deleting product failed because it does not exist",
         key: "id",
         value: id,
       });

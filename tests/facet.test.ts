@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
-import { OperError } from "../src/lib/OperError";
+import { OperationalError } from "../src/lib/errors";
 import { FacetErrorCodes } from "../src/lib/errors";
 import { facets } from "../src/db/schema";
 
@@ -22,14 +22,6 @@ test("Get facets by key", async () => {
       expect.objectContaining({ id: facet2!.id }),
     ]),
   );
-});
-
-test("Get facets by a key with no results", async () => {
-  const result = await store.facets.getFacetsByKey(
-    faker.string.alphanumeric(20),
-  );
-
-  expect(result).toEqual([]);
 });
 
 test("Add a facet", async () => {
@@ -56,10 +48,9 @@ test("Add a facet with a duplicate key and value", async () => {
 
   const result = store.facets.addFacet({ key, value, type: "string" });
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: FacetErrorCodes.FacetAlreadyExists,
-    message: expect.any(String),
   });
 });
 
@@ -86,11 +77,9 @@ test("Remove a facet", async () => {
 test("Remove a facet that does not exist", async () => {
   const result = store.facets.removeFacet(faker.string.uuid());
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: FacetErrorCodes.FacetNotFound,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 

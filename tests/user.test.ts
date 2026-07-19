@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
-import { OperError } from "../src/lib/OperError";
+import { OperationalError } from "../src/lib/errors";
 import { UserErrorCodes } from "../src/lib/errors";
 import { users } from "../src/db/schema";
 import { verifyPassword, hashPassword } from "../src/lib/string";
@@ -38,7 +38,7 @@ test("Get user by id", async () => {
 test("Get user that doesn't exist by id", async () => {
   const userById = store.users.findByID(faker.string.uuid());
 
-  expect(userById).rejects.toThrow(OperError);
+  expect(userById).rejects.toThrow(OperationalError);
   expect(userById).rejects.toMatchObject({
     code: UserErrorCodes.UserNotFound,
     message: expect.any(String),
@@ -77,7 +77,7 @@ test("Register a duplicate email", async () => {
     "1234",
   );
 
-  expect(user).rejects.toThrow(OperError);
+  expect(user).rejects.toThrow(OperationalError);
   expect(user).rejects.toMatchObject({
     code: UserErrorCodes.EmailAlreadyRegistered,
     message: expect.any(String),
@@ -126,11 +126,9 @@ test("Verify user with an expired token", async () => {
 
   const verifiedUser = store.users.verifyUser(user!.verificationOtp!);
 
-  expect(verifiedUser).rejects.toThrow(OperError);
+  expect(verifiedUser).rejects.toThrow(OperationalError);
   expect(verifiedUser).rejects.toMatchObject({
     code: UserErrorCodes.VerificationOtpInvalidOrExpired,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -150,11 +148,9 @@ test("Verify user with an invalid OTP", async () => {
 
   const result = store.users.verifyUser("WRONG1");
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: UserErrorCodes.VerificationOtpInvalidOrExpired,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -182,11 +178,9 @@ test("Log user in with an unregistered email", async () => {
     faker.internet.password(),
   );
 
-  expect(user).rejects.toThrow(OperError);
+  expect(user).rejects.toThrow(OperationalError);
   expect(user).rejects.toMatchObject({
     code: UserErrorCodes.InvalidEmailOrPassword,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -208,11 +202,9 @@ test("Log user in with a wrong password", async () => {
     faker.internet.password(),
   );
 
-  expect(loggedUser).rejects.toThrow(OperError);
+  expect(loggedUser).rejects.toThrow(OperationalError);
   expect(loggedUser).rejects.toMatchObject({
     code: UserErrorCodes.InvalidEmailOrPassword,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -228,11 +220,9 @@ test("Log in an unverified user", async () => {
 
   const loggedUser = store.users.logUserIn(user!.email, password);
 
-  expect(loggedUser).rejects.toThrow(OperError);
+  expect(loggedUser).rejects.toThrow(OperationalError);
   expect(loggedUser).rejects.toMatchObject({
     code: UserErrorCodes.AccountNotVerified,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -263,11 +253,9 @@ test("Change name of a non-existent user", async () => {
     faker.person.fullName(),
   );
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: UserErrorCodes.UserNotFound,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -308,11 +296,9 @@ test("Request email change for a non-existent user", async () => {
     faker.internet.email(),
   );
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: UserErrorCodes.UserNotFound,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -374,11 +360,9 @@ test("Change email with wrong OTP", async () => {
     password,
   );
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: UserErrorCodes.EmailChangeOtpInvalidOrExpired,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -406,11 +390,9 @@ test("Change email with expired OTP", async () => {
     password,
   );
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: UserErrorCodes.EmailChangeOtpInvalidOrExpired,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 
   const dbUser = await store.db.query.users.findFirst({
@@ -449,11 +431,9 @@ test("Change email with wrong password", async () => {
     "wrong-password",
   );
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: UserErrorCodes.WrongPassword,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -486,10 +466,9 @@ test("Change email to an already registered email", async () => {
 
   const result = store.users.requestChangeEmail(user!.id, existingUser!.email);
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: UserErrorCodes.EmailAlreadyRegistered,
-    message: expect.any(String),
   });
 });
 
@@ -525,11 +504,9 @@ test("Change password for a non-existent user", async () => {
     faker.internet.password(),
   );
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: UserErrorCodes.UserNotFound,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -552,11 +529,9 @@ test("Change password with wrong current password", async () => {
     faker.internet.password(),
   );
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: UserErrorCodes.WrongCurrentPassword,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -595,11 +570,9 @@ test("Request password reset", async () => {
 test("Request password reset for a non-existent user", async () => {
   const result = store.users.requestPasswordReset(faker.internet.email());
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: UserErrorCodes.UserNotFound,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -639,11 +612,9 @@ test("Reset password with an invalid token", async () => {
     faker.internet.password(),
   );
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: UserErrorCodes.InvalidOrExpiredResetToken,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -665,11 +636,9 @@ test("Reset password with an expired token", async () => {
 
   const result = store.users.resetPassword(token, faker.internet.password());
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: UserErrorCodes.InvalidOrExpiredResetToken,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 

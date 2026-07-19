@@ -2,7 +2,10 @@ import { DrizzleQueryError } from "drizzle-orm";
 import pc from "picocolors";
 
 import { extractKeyValue } from "./string";
-import { OperError } from "./OperError";
+
+export type ErrorSeverity = "error" | "warning" | "info";
+
+// ================================ Error Codes ================================
 
 export enum UserErrorCodes {
   UserNotFound = "U000",
@@ -35,18 +38,52 @@ export enum CartItemErrorsCodes {
   QuantityInvalid = "B001",
 }
 
+type args = {
+  code: string;
+  severity: ErrorSeverity;
+  userMessage: string;
+  logMessage?: string;
+  cause?: string;
+  key?: string | string[];
+  value?: string | string[];
+};
+
+export class OperationalError extends Error {
+  code: string;
+  severity: ErrorSeverity;
+  userMessage: string;
+  logMessage?: string;
+  override cause?: string;
+  key?: string | string[];
+  value?: string | string[];
+
+  constructor(params: args) {
+    super();
+    this.code = params.code;
+    this.severity = params.severity;
+    this.userMessage = params.userMessage;
+    this.logMessage = params.logMessage;
+    this.cause = params.cause;
+    this.key = params.key;
+    if (this.logMessage) {
+      this.value = params.value;
+      logMessage(this.severity, this.logMessage);
+    }
+  }
+}
+
+// ================================ Error Handling ================================
+
 export function handleError(e: unknown): never {
   if (isUniqueViolationError(e)) {
     const [key, value] = extractKeyValue(e.cause.detail);
     if (e.cause.table === "facets") {
       if (key?.includes("key") || key?.includes("value")) {
-        logMessage(
-          "info",
-          `Attempt to insert/update facet with key/value (${value}) failed because a facet with the same key/value already exists.`,
-        );
-        throw new OperError({
+        throw new OperationalError({
           code: FacetErrorCodes.FacetAlreadyExists,
-          message: "Facet already exists",
+          severity: "info",
+          logMessage: `Attempt to insert/update facet with key/value (${value}) failed because a facet with the same key/value already exists.`,
+          userMessage: "Facet already exists",
           cause: `Facet (${value}) already exists`,
           key: key?.split(","),
           value: value?.split(","),
@@ -55,16 +92,14 @@ export function handleError(e: unknown): never {
     }
     if (e.cause.table === "products") {
       if (key === "barcode") {
-        logMessage(
-          "info",
-          `Attempt to insert/update product with barcode (${value}) failed because a product with the same barcode already exists.`,
-        );
-        throw new OperError({
+        throw new OperationalError({
           code: ProductErrorCodes.BarcodeAlreadyExists,
-          message: "Barcode is registered to another product",
+          severity: "info",
+          logMessage: `Attempt to insert/update product with barcode (${value}) failed because a product with the same barcode already exists.`,
+          userMessage: "Barcode is registered to another product",
           cause: `Barcode (${value}) is already registered to another product`,
-          key: key?.split(","),
-          value: value?.split(","),
+          key: key,
+          value: value,
         });
       }
     }
@@ -87,24 +122,29 @@ export function isUniqueViolationError(e: unknown): e is DrizzleQueryError & {
   );
 }
 
-export function logMessage(
-  severity: "error" | "warn" | "info" | "success",
-  message: string,
-) {
+export function logMessage(severity: ErrorSeverity, message: string) {
   if (process.env.NODE_ENV === "test") {
     return;
   }
 
-  if (severity === "success") {
-    console.log(pc.green(`[${new Date().toLocaleString()}]: ${message}`));
-  }
   if (severity === "error") {
-    console.log(pc.red(`[${new Date().toLocaleString()}]: ${message}`));
+    console.log(
+      pc.bgRed(severity.toUpperCase()),
+      `[${new Date().toLocaleString()}]: ${message}`,
+    );
   }
-  if (severity === "warn") {
-    console.log(pc.yellow(`[${new Date().toLocaleString()}]: ${message}`));
+
+  if (severity === "warning") {
+    console.log(
+      pc.bgYellow(severity.toUpperCase()),
+      `[${new Date().toLocaleString()}]: ${message}`,
+    );
   }
+
   if (severity === "info") {
-    console.log(pc.cyan(`[${new Date().toLocaleString()}]: ${message}`));
+    console.log(
+      pc.bgBlue(severity.toUpperCase()),
+      `[${new Date().toLocaleString()}]: ${message}`,
+    );
   }
 }

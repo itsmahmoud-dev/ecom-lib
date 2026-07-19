@@ -1,8 +1,12 @@
 import { eq, sql } from "drizzle-orm";
 import { cartItems } from "./db/schema";
-import { CartItemErrorsCodes, handleError } from "./lib/errors";
+import {
+  CartItemErrorsCodes,
+  handleError,
+  OperationalError,
+} from "./lib/errors";
+
 import type { Store } from "./Store";
-import { OperError } from "./lib/OperError";
 
 export class Bags {
   store: Store;
@@ -35,7 +39,12 @@ export class Bags {
         .returning();
 
       if (!item) {
-        throw new Error("Error inserting cart item");
+        throw new OperationalError({
+          code: "",
+          severity: "error",
+          logMessage: "Error inserting a cart item",
+          userMessage: "Something went wrong",
+        });
       }
 
       return item;
@@ -51,9 +60,13 @@ export class Bags {
       .returning();
 
     if (!item) {
-      throw new OperError({
+      throw new OperationalError({
         code: CartItemErrorsCodes.CartItemNotFound,
-        message: "Bag item was not found",
+        severity: "warning",
+        userMessage: "Bag item was not found",
+        logMessage: `Removing cart item failed because it does not exist`,
+        key: "id",
+        value: id,
       });
     }
 
@@ -68,9 +81,13 @@ export class Bags {
       .returning();
 
     if (!item) {
-      throw new OperError({
+      throw new OperationalError({
         code: CartItemErrorsCodes.CartItemNotFound,
-        message: "Bag item was not found",
+        severity: "warning",
+        userMessage: "Bag item was not found",
+        logMessage: `Incrementing cart item quantity failed because it does not exist`,
+        key: "id",
+        value: id,
       });
     }
 
@@ -85,9 +102,13 @@ export class Bags {
       .returning();
 
     if (!item) {
-      throw new OperError({
+      throw new OperationalError({
         code: CartItemErrorsCodes.CartItemNotFound,
-        message: "Bag item was not found",
+        severity: "warning",
+        userMessage: "Bag item was not found",
+        logMessage: `Decrementing cart item quantity failed because it does not exist`,
+        key: "id",
+        value: id,
       });
     }
 
@@ -96,9 +117,13 @@ export class Bags {
 
   async updateQuantity(id: string, quantity: number) {
     if (quantity <= 0) {
-      throw new OperError({
+      throw new OperationalError({
         code: CartItemErrorsCodes.QuantityInvalid,
-        message: "Quantity has to a positive number",
+        severity: "info",
+        userMessage: "Quantity should be a positive number",
+        logMessage: `Updating cart item quantity failed because the quantity is not positive`,
+        key: "id",
+        value: id,
       });
     }
 
@@ -109,9 +134,13 @@ export class Bags {
       .returning();
 
     if (!item) {
-      throw new OperError({
+      throw new OperationalError({
         code: CartItemErrorsCodes.CartItemNotFound,
-        message: "Bag item was not found",
+        severity: "warning",
+        userMessage: "Bag item was not found",
+        logMessage: `Updating cart item quantity failed because it does not exist`,
+        key: "id",
+        value: id,
       });
     }
 

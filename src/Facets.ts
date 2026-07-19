@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 
 import { facets } from "./db/schema/facets.model";
-import { OperError } from "./lib/OperError";
-import { FacetErrorCodes, handleError, logMessage } from "./lib/errors";
+
+import { FacetErrorCodes, handleError, OperationalError } from "./lib/errors";
 
 import type { Store } from "./Store";
 
@@ -33,7 +33,7 @@ export class Facets {
    * @param key
    * @param value
    * @returns The new facet
-   * @throws {OperError} `F000` (`FacetAlreadyExists`) if the facet already exists
+   * @throws {OperationalError} `F000` (`FacetAlreadyExists`) if the facet already exists
    */
   async addFacet(params: Omit<typeof facets.$inferInsert, "id" | "createdAt">) {
     try {
@@ -41,6 +41,15 @@ export class Facets {
         .insert(facets)
         .values({ ...params })
         .returning();
+
+      if (!facet) {
+        throw new OperationalError({
+          code: "",
+          severity: "error",
+          logMessage: "Error inserting a facet",
+          userMessage: "Something went wrong",
+        });
+      }
 
       return facet;
     } catch (e) {
@@ -52,7 +61,7 @@ export class Facets {
    * Removes a facet.
    * @param key
    * @param value
-   * @throws {OperError} `F001` (`FacetNotFound`) if the facet is not found
+   * @throws {OperationalError} `F001` (`FacetNotFound`) if the facet is not found
    */
   async removeFacet(id: string) {
     const [facet] = await this.store.db
@@ -61,14 +70,13 @@ export class Facets {
       .returning();
 
     if (!facet) {
-      logMessage(
-        "warn",
-        `Attempt to delete a facet with id (${id}) failed becuase it does not exist`,
-      );
-      throw new OperError({
+      throw new OperationalError({
         code: FacetErrorCodes.FacetNotFound,
-        message: "Facet was not found",
-        cause: `Facet with id (${id}) does not exist`,
+        severity: "warning",
+        userMessage: "Facet was not found",
+        logMessage: `Removing a facet failed because it does not exist`,
+        key: "id",
+        value: id,
       });
     }
   }

@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
-import { OperError } from "../src/lib/OperError";
+import { OperationalError } from "../src/lib/errors";
 import { ProductErrorCodes } from "../src/lib/errors";
 import { facets, images, products } from "../src/db/schema";
 
@@ -221,10 +221,9 @@ test("Add a product with a duplicate barcode", async () => {
     i: [],
   });
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: ProductErrorCodes.BarcodeAlreadyExists,
-    message: expect.any(String),
   });
 });
 
@@ -237,11 +236,9 @@ test("Update a product that doesn't exist", async () => {
     },
   });
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: ProductErrorCodes.ProductNotFound,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -270,10 +267,9 @@ test("Update a product with a duplicate barcode", async () => {
     p: { id: product!.id, barcode, version: product!.version },
   });
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: ProductErrorCodes.BarcodeAlreadyExists,
-    message: expect.any(String),
   });
 });
 
@@ -294,11 +290,9 @@ test("Update a variant that doesn't exist", async () => {
     v: [{ id: faker.string.uuid(), price: 19.99 }],
   });
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: ProductErrorCodes.VariantNotFound,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -319,11 +313,9 @@ test("Update an image that doesn't exist", async () => {
     i: [{ id: faker.string.uuid(), attributes: [] }],
   });
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: ProductErrorCodes.ImageNotFound,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
@@ -344,11 +336,9 @@ test("Update a product with the wrong version", async () => {
     i: [{ id: faker.string.uuid(), attributes: [] }],
   });
 
-  expect(result).rejects.toThrow(OperError);
+  expect(result).rejects.toThrow(OperationalError);
   expect(result).rejects.toMatchObject({
     code: ProductErrorCodes.VersionMismatch,
-    message: expect.any(String),
-    cause: expect.any(String),
   });
 });
 
