@@ -7,6 +7,7 @@ import { relations } from "./db/relations";
 import { Products } from "./Products";
 import { Users } from "./Users";
 import { Facets } from "./Facets";
+import { CartItems } from "./CartItems";
 
 type StoreParams = {
   name: string;
@@ -25,6 +26,7 @@ export class Store {
   users: Users;
   products: Products;
   facets: Facets;
+  cartItems: CartItems;
 
   emitter = new EventEmitter();
 
@@ -37,5 +39,6 @@ export class Store {
     this.products = new Products(this);
     this.users = new Users(this);
     this.facets = new Facets(this);
+    this.cartItems = new CartItems(this);
   }
 }

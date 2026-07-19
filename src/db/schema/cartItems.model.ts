@@ -5,7 +5,7 @@ import { productVariants } from "./productVariants.model";
 import { sql } from "drizzle-orm";
 
 export const cartItems = snakeCase.table(
-  "bagItems",
+  "cartItems",
   (t) => ({
     id: t.uuid().primaryKey().defaultRandom(),
 

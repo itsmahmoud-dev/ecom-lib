@@ -8,7 +8,7 @@ import {
 
 import type { Store } from "./Store";
 
-export class Bags {
+export class CartItems {
   store: Store;
 
   constructor(store: Store) {
@@ -95,24 +95,28 @@ export class Bags {
   }
 
   async decrementQuantity(id: string) {
-    const [item] = await this.store.db
-      .update(cartItems)
-      .set({ quantity: sql`${cartItems.quantity} - 1` })
-      .where(eq(cartItems.id, id))
-      .returning();
+    try {
+      const [item] = await this.store.db
+        .update(cartItems)
+        .set({ quantity: sql`${cartItems.quantity} - 1` })
+        .where(eq(cartItems.id, id))
+        .returning();
 
-    if (!item) {
-      throw new OperationalError({
-        code: CartItemErrorsCodes.CartItemNotFound,
-        severity: "warning",
-        userMessage: "Bag item was not found",
-        logMessage: `Decrementing cart item quantity failed because it does not exist`,
-        key: "id",
-        value: id,
-      });
+      if (!item) {
+        throw new OperationalError({
+          code: CartItemErrorsCodes.CartItemNotFound,
+          severity: "warning",
+          userMessage: "Bag item was not found",
+          logMessage: `Decrementing cart item quantity failed because it does not exist`,
+          key: "id",
+          value: id,
+        });
+      }
+
+      return item;
+    } catch (e) {
+      handleError(e);
     }
-
-    return item;
   }
 
   async updateQuantity(id: string, quantity: number) {
