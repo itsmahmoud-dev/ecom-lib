@@ -18,6 +18,7 @@ export enum UserErrorCodes {
   WrongCurrentPassword = "U007",
   InvalidOrExpiredResetToken = "U008",
   SameEmail = "U009",
+  AddressNoFound = "U010",
 }
 
 export enum ProductErrorCodes {

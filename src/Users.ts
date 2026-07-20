@@ -656,4 +656,34 @@ export class Users {
       handleError(e);
     }
   }
+
+  async updateAddress(
+    id: string,
+    address: {
+      name?: string;
+      country?: string;
+      state?: string;
+      city?: string;
+      street?: string;
+      building?: string;
+      floor?: string;
+    },
+  ) {
+    const [updatedAddress] = await this.store.db
+      .update(addresses)
+      .set({ ...address })
+      .where(eq(addresses.id, id))
+      .returning();
+
+    if (!updatedAddress) {
+      throw new OperationalError({
+        code: UserErrorCodes.AddressNoFound,
+        severity: "warning",
+        userMessage: "Address was not found",
+        logMessage: "Updating address failed because it does not exist",
+      });
+    }
+
+    return updatedAddress;
+  }
 }

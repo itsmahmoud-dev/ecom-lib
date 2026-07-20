@@ -686,6 +686,50 @@ test("Add an address for a user that doesn't exist", async () => {
   });
 });
 
+test("Update an address", async () => {
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: "1234",
+      status: "verified",
+    })
+    .returning();
+
+  expect(user).toBeDefined();
+
+  const address = await store.users.addAddress(user!.id, {
+    name: faker.person.fullName(),
+    country: faker.location.country(),
+    state: faker.location.state(),
+    city: faker.location.city(),
+    street: faker.location.street(),
+    building: faker.location.buildingNumber(),
+  });
+
+  const newCity = faker.location.city();
+  const updatedAddress = await store.users.updateAddress(address!.id, {
+    city: newCity,
+  });
+
+  expect(updatedAddress).toMatchObject({
+    id: address!.id,
+    city: newCity,
+  });
+});
+
+test("Update an address that doesn't exist", async () => {
+  const result = store.users.updateAddress(faker.string.uuid(), {
+    city: faker.location.city(),
+  });
+
+  expect(result).rejects.toThrow(OperationalError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.AddressNoFound,
+  });
+});
+
 afterAll(async () => {
   await store.db.delete(users);
 });
