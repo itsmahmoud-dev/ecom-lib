@@ -123,7 +123,7 @@ export class CartItems {
     if (quantity <= 0) {
       throw new OperationalError({
         code: CartItemErrorsCodes.QuantityInvalid,
-        severity: "info",
+        severity: "warning",
         userMessage: "Quantity should be a positive number",
         logMessage: `Updating cart item quantity failed because the quantity is not positive`,
         key: "id",
