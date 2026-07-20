@@ -638,13 +638,7 @@ export class Users {
         .insert(addresses)
         .values({
           userId,
-          name: address.name,
-          country: address.country,
-          state: address.state,
-          city: address.city,
-          street: address.street,
-          building: address.building,
-          floor: address.floor,
+          ...address,
         })
         .returning();
 
