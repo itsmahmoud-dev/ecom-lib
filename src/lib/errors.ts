@@ -170,6 +170,21 @@ export function handleError(e: unknown): never {
         value,
       });
     }
+    if (
+      e.cause.constraint === "productsToFacets_facet_id_facets_id_fkey" ||
+      e.cause.constraint === "productVariantsToFacets_facet_id_facets_id_fkey" ||
+      e.cause.constraint === "imagesToFacets_facet_id_facets_id_fkey"
+    ) {
+      throw new OperationalError({
+        code: FacetErrorCodes.FacetNotFound,
+        severity: "warning",
+        userMessage: "One of the facets was not found",
+        logMessage:
+          "Adding a cart item failed because one of the facets was not found",
+        key,
+        value,
+      });
+    }
   }
 
   throw e;
