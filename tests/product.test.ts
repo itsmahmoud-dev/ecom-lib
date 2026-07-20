@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
-import { OperationalError } from "../src/lib/errors";
+import { FacetErrorCodes, OperationalError } from "../src/lib/errors";
 import { ProductErrorCodes } from "../src/lib/errors";
 import { facets, images, products } from "../src/db/schema";
 
@@ -225,6 +225,70 @@ test("Add a product with a duplicate barcode", async () => {
   expect(result).rejects.toMatchObject({
     code: ProductErrorCodes.BarcodeAlreadyExists,
   });
+});
+
+test("Add a product with at least one non-existent facet", async () => {
+  const result = store.products.addProduct({
+    p: {
+      name: faker.commerce.productName(),
+      active: true,
+      description: faker.commerce.productDescription(),
+      attributes: [faker.string.uuid()],
+    },
+    v: [],
+    i: [],
+  });
+
+  expect(result).rejects.toThrow();
+
+  expect(result).rejects.toMatchObject({ code: FacetErrorCodes.FacetNotFound });
+});
+
+test("Add a product with a variant that has at least one non-existent facet", async () => {
+  const image = makeImageFile("red-t-shirt.webp", "image/webp");
+  const greenFacet = await store.facets.addFacet({
+    key: "color",
+    value: `green-${faker.string.alphanumeric(8)}`,
+  });
+
+  const result = store.products.addProduct({
+    p: {
+      name: faker.commerce.productName(),
+      active: true,
+      description: faker.commerce.productDescription(),
+      attributes: [greenFacet.id],
+    },
+    v: [{ price: 19.99, discount: 0, attributes: [faker.string.uuid()] }],
+    i: [{ file: image, attributes: [faker.string.uuid()] }],
+  });
+
+  expect(result).rejects.toThrow();
+
+  expect(result).rejects.toMatchObject({ code: FacetErrorCodes.FacetNotFound });
+});
+
+test("Add a product with an image that has at least one non-existent facet", async () => {
+  const image = makeImageFile("red-t-shirt.webp", "image/webp");
+
+  const greenFacet = await store.facets.addFacet({
+    key: "color",
+    value: `green-${faker.string.alphanumeric(8)}`,
+  });
+
+  const result = store.products.addProduct({
+    p: {
+      name: faker.commerce.productName(),
+      active: true,
+      description: faker.commerce.productDescription(),
+      attributes: [greenFacet.id],
+    },
+    v: [],
+    i: [{ file: image, attributes: [faker.string.uuid()] }],
+  });
+
+  expect(result).rejects.toThrow();
+
+  expect(result).rejects.toMatchObject({ code: FacetErrorCodes.FacetNotFound });
 });
 
 test("Update a product that doesn't exist", async () => {
