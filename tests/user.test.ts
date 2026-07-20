@@ -642,6 +642,50 @@ test("Reset password with an expired token", async () => {
   });
 });
 
+test("Add an address", async () => {
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: "1234",
+      status: "verified",
+    })
+    .returning();
+
+  expect(user).toBeDefined();
+
+  const address = {
+    name: faker.person.fullName(),
+    country: faker.location.country(),
+    state: faker.location.state(),
+    city: faker.location.city(),
+    street: faker.location.street(),
+    building: faker.location.buildingNumber(),
+    floor: faker.number.int({ min: 1, max: 20 }).toString(),
+  };
+
+  const newAddress = await store.users.addAddress(user!.id, address);
+
+  expect(newAddress).toMatchObject(address);
+});
+
+test("Add an address for a user that doesn't exist", async () => {
+  const result = store.users.addAddress(faker.string.uuid(), {
+    name: faker.person.fullName(),
+    country: faker.location.country(),
+    state: faker.location.state(),
+    city: faker.location.city(),
+    street: faker.location.street(),
+    building: faker.location.buildingNumber(),
+  });
+
+  expect(result).rejects.toThrow(OperationalError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.UserNotFound,
+  });
+});
+
 afterAll(async () => {
   await store.db.delete(users);
 });

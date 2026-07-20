@@ -3,7 +3,7 @@ import { sign } from "jsonwebtoken";
 import { eq, sql } from "drizzle-orm";
 
 import { UserErrorCodes, handleError, OperationalError } from "./lib/errors";
-import { users } from "./db/schema";
+import { addresses, users } from "./db/schema";
 import { hashPassword, verifyPassword } from "./lib/string";
 
 import type { Store } from "./Store";
@@ -619,5 +619,47 @@ export class Users {
         accessTokenId: sql`(${users.accessTokenId} + 1) % 1000`,
       })
       .where(eq(users.id, user.id));
+  }
+
+  async addAddress(
+    userId: string,
+    address: {
+      name: string;
+      country: string;
+      state: string;
+      city: string;
+      street: string;
+      building: string;
+      floor?: string;
+    },
+  ) {
+    try {
+      const [newAddress] = await this.store.db
+        .insert(addresses)
+        .values({
+          userId,
+          name: address.name,
+          country: address.country,
+          state: address.state,
+          city: address.city,
+          street: address.street,
+          building: address.building,
+          floor: address.floor,
+        })
+        .returning();
+
+      if (!newAddress) {
+        throw new OperationalError({
+          code: "",
+          severity: "error",
+          userMessage: "Something went wrong",
+          logMessage: "Error inserting an address",
+        });
+      }
+
+      return newAddress;
+    } catch (e) {
+      handleError(e);
+    }
   }
 }

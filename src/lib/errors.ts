@@ -185,6 +185,16 @@ export function handleError(e: unknown): never {
         value,
       });
     }
+    if (e.cause.constraint === "addresses_user_id_users_id_fkey") {
+      throw new OperationalError({
+        code: UserErrorCodes.UserNotFound,
+        severity: "warning",
+        userMessage: "User was not found",
+        logMessage: "Adding an address failed because the user was not found",
+        key,
+        value,
+      });
+    }
   }
 
   throw e;
