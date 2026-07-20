@@ -686,4 +686,22 @@ export class Users {
 
     return updatedAddress;
   }
+
+  async deleteAddress(id: string) {
+    const [address] = await this.store.db
+      .delete(addresses)
+      .where(eq(addresses.id, id))
+      .returning();
+
+    if (!address) {
+      throw new OperationalError({
+        code: UserErrorCodes.AddressNoFound,
+        severity: "warning",
+        userMessage: "Address was not found",
+        logMessage: "Deleting address failed because it does not exist",
+      });
+    }
+
+    return address.id;
+  }
 }

@@ -730,6 +730,42 @@ test("Update an address that doesn't exist", async () => {
   });
 });
 
+test("Delete an address", async () => {
+  const [user] = await store.db
+    .insert(users)
+    .values({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: "1234",
+      status: "verified",
+    })
+    .returning();
+
+  expect(user).toBeDefined();
+
+  const address = await store.users.addAddress(user!.id, {
+    name: faker.person.fullName(),
+    country: faker.location.country(),
+    state: faker.location.state(),
+    city: faker.location.city(),
+    street: faker.location.street(),
+    building: faker.location.buildingNumber(),
+  });
+
+  const deletedId = await store.users.deleteAddress(address!.id);
+
+  expect(deletedId).toBe(address!.id);
+});
+
+test("Delete an address that doesn't exist", async () => {
+  const result = store.users.deleteAddress(faker.string.uuid());
+
+  expect(result).rejects.toThrow(OperationalError);
+  expect(result).rejects.toMatchObject({
+    code: UserErrorCodes.AddressNoFound,
+  });
+});
+
 afterAll(async () => {
   await store.db.delete(users);
 });
