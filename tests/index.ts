@@ -2,7 +2,7 @@ import { Store } from "../src";
 
 export const store = new Store({
   name: "Test Store",
-  dataPath: "/home/mahmoud/development/personal/itsmahmoud-dev/ecom-lib/data",
+  dataPath: process.env.DATA_PATH!,
   dbUrl: process.env.DATABASE_URL!,
-  JWT_SECRET: "1234",
+  JWT_SECRET: process.env.JWT_SECRET!,
 });
