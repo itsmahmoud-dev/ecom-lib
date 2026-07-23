@@ -2,6 +2,7 @@ import { DrizzleQueryError } from "drizzle-orm";
 import pc from "picocolors";
 
 import { extractKeyValue } from "./string";
+import { ZodError } from "zod";
 
 export type ErrorSeverity = "error" | "warning" | "info";
 
@@ -38,6 +39,10 @@ export enum CartItemErrorsCodes {
   CartItemNotFound = "B000",
   QuantityInvalid = "B001",
   CartItemAlreadyExists = "B002",
+}
+
+export enum CollectionErrorCodes {
+  CollectionNotFound = "C000",
 }
 
 type args = {
@@ -192,6 +197,32 @@ export function handleError(e: unknown): never {
         severity: "warning",
         userMessage: "User was not found",
         logMessage: "Adding an address failed because the user was not found",
+        key,
+        value,
+      });
+    }
+
+    if (e.cause.constraint === "inCollection_product_id_products_id_fkey") {
+      throw new OperationalError({
+        code: ProductErrorCodes.ProductNotFound,
+        severity: "warning",
+        userMessage: "Product is not found",
+        logMessage:
+          "Adding a product to a collection failed because the product was not found",
+        key,
+        value,
+      });
+    }
+
+    if (
+      e.cause.constraint === "inCollection_collection_id_collections_id_fkey"
+    ) {
+      throw new OperationalError({
+        code: CollectionErrorCodes.CollectionNotFound,
+        severity: "warning",
+        userMessage: "Collection is not found",
+        logMessage:
+          "Adding a product to a collection failed because the collection was not found",
         key,
         value,
       });

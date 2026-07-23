@@ -102,4 +102,10 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.users.id,
     }),
   },
+  collections: {
+    products: r.many.products({
+      from: r.collections.id.through(r.inCollection.collectionId),
+      to: r.products.id.through(r.inCollection.productId),
+    }),
+  },
 }));

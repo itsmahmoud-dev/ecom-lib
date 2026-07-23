@@ -2,12 +2,12 @@ import { EventEmitter } from "node:events";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { BunSQLDatabase } from "drizzle-orm/bun-sql/postgres";
 
-import * as models from "./db/schema";
 import { relations } from "./db/relations";
 import { Products } from "./Products";
 import { Users } from "./Users";
 import { Facets } from "./Facets";
 import { CartItems } from "./CartItems";
+import { Collections } from "./Collections";
 
 type StoreParams = {
   name: string;
@@ -27,6 +27,7 @@ export class Store {
   products: Products;
   facets: Facets;
   cartItems: CartItems;
+  collections: Collections;
 
   emitter = new EventEmitter();
 
@@ -40,5 +41,6 @@ export class Store {
     this.users = new Users(this);
     this.facets = new Facets(this);
     this.cartItems = new CartItems(this);
+    this.collections = new Collections(this);
   }
 }
