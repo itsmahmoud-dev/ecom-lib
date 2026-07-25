@@ -11,6 +11,8 @@ export const productVariants = snakeCase.table("productVariant", (t) => ({
 
   price: t.numeric({ mode: "number" }).notNull(),
 
+  quantity: t.numeric({ mode: "number" }).notNull(),
+
   discount: t.numeric({ mode: "number" }).notNull().default(0),
 
   createdAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),

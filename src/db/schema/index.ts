@@ -5,6 +5,8 @@ export * from "./facets.model";
 export * from "./images.model";
 export * from "./imagesToFacets.model";
 export * from "./inCollection.model";
+export * from "./order.model";
+export * from "./orderItems.model";
 export * from "./productVariants.model";
 export * from "./productVariantsToFacets.model";
 export * from "./productVariantsToImages.model";

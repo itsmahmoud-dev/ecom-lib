@@ -26,6 +26,7 @@ type InsertProductParams = {
   v: {
     price: number;
     discount?: number;
+    quantity: number;
     attributes: string[];
   }[];
   i: {
@@ -48,6 +49,7 @@ type UpdateProductParams = {
     id?: string;
     price?: number;
     discount?: number;
+    quantity?: number;
     attributes?: string[];
   }[];
   i?: {
@@ -104,6 +106,7 @@ export class Products {
               productId: product.id,
               price: el.price,
               discount: el.discount,
+              quantity: el.quantity,
             })
             .returning();
 
@@ -274,7 +277,7 @@ export class Products {
 
         // ---------------------------- editing variants ----------------------------
         if (params.v?.length) {
-          for (const { id, attributes, discount, price } of params.v) {
+          for (const { id, attributes, discount, price, quantity } of params.v) {
             // update existing variant
             if (id) {
               const orignalVariant = product.variants.find((el) => el.id === id);
@@ -293,7 +296,7 @@ export class Products {
               if (discount || price) {
                 await tx
                   .update(productVariants)
-                  .set({ discount, price })
+                  .set({ discount, price, quantity })
                   .where(eq(productVariants.id, id));
               }
 
@@ -330,13 +333,14 @@ export class Products {
             }
 
             // insert new variant
-            else if (!id && price && attributes?.length) {
+            else if (!id && price && quantity && attributes?.length) {
               const [newVariant] = await tx
                 .insert(productVariants)
                 .values({
                   productId: product.id,
                   price: price,
                   discount: discount,
+                  quantity,
                 })
                 .returning();
 
