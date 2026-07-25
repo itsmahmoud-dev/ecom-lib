@@ -202,7 +202,6 @@ export class Users {
     }
 
     if (!verifyPassword(password, user?.password)) {
-      // TODO: set rate limiter for failed retries
       throw new OperationalError({
         code: UserErrorCodes.InvalidEmailOrPassword,
         severity: "info",
