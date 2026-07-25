@@ -39,6 +39,7 @@ export const relations = defineRelations(schema, (r) => ({
     product: r.one.products({
       from: r.productVariants.productId,
       to: r.products.id,
+      optional: false,
     }),
     // one variant has many facets
     attributes: r.many.facets({

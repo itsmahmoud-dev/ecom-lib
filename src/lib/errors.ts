@@ -45,6 +45,13 @@ export enum CollectionErrorCodes {
   CollectionNotFound = "C000",
 }
 
+export enum OrderErrorCodes {
+  CartEmpty = "OR000",
+  OrderNotFound = "OR001",
+  InvalidOrderStatus = "OR002",
+  QuantityNotEnough = "OR003",
+}
+
 type args = {
   code: string;
   severity: ErrorSeverity;
