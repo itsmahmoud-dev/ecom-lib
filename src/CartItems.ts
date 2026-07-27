@@ -7,6 +7,13 @@ import {
 } from "./lib/errors";
 
 import type { Store } from "./Store";
+import type z from "zod";
+import {
+  addCartItemSchema,
+  cartItemQuantityschema,
+  importCartItemsSchema,
+  userIdSchema,
+} from "./types/cartItems.type";
 
 export class CartItems {
   store: Store;
@@ -31,20 +38,17 @@ export class CartItems {
     });
   }
 
-  async addCartItem(userId: string, productId: string, variantId: string) {
+  async addCartItem(params: z.infer<typeof addCartItemSchema>) {
     try {
+      const data = addCartItemSchema.parse({ ...params });
+
       const item = await this.store.db
         .insert(cartItems)
-        .values({ productId, userId, variantId })
+        .values({ ...data })
         .returning();
 
       if (!item) {
-        throw new OperationalError({
-          code: "",
-          severity: "error",
-          logMessage: "Error inserting a cart item",
-          userMessage: "Something went wrong",
-        });
+        throw new Error("Error inserting a cart item");
       }
 
       return item;
@@ -54,44 +58,52 @@ export class CartItems {
   }
 
   async removeItem(id: string) {
-    const [item] = await this.store.db
-      .delete(cartItems)
-      .where(eq(cartItems.id, id))
-      .returning();
+    try {
+      const [item] = await this.store.db
+        .delete(cartItems)
+        .where(eq(cartItems.id, id))
+        .returning();
 
-    if (!item) {
-      throw new OperationalError({
-        code: CartItemErrorsCodes.CartItemNotFound,
-        severity: "warning",
-        userMessage: "Bag item was not found",
-        logMessage: `Removing cart item failed because it does not exist`,
-        key: "id",
-        value: id,
-      });
+      if (!item) {
+        throw new OperationalError({
+          code: CartItemErrorsCodes.CartItemNotFound,
+          severity: "warning",
+          userMessage: "Cart item was not found",
+          logMessage: `Removing cart item failed because it does not exist`,
+          key: "id",
+          value: id,
+        });
+      }
+
+      return item;
+    } catch (e) {
+      handleError(e);
     }
-
-    return item;
   }
 
   async incrementQuantity(id: string) {
-    const [item] = await this.store.db
-      .update(cartItems)
-      .set({ quantity: sql`${cartItems.quantity} + 1` })
-      .where(eq(cartItems.id, id))
-      .returning();
+    try {
+      const [item] = await this.store.db
+        .update(cartItems)
+        .set({ quantity: sql`${cartItems.quantity} + 1` })
+        .where(eq(cartItems.id, id))
+        .returning();
 
-    if (!item) {
-      throw new OperationalError({
-        code: CartItemErrorsCodes.CartItemNotFound,
-        severity: "warning",
-        userMessage: "Bag item was not found",
-        logMessage: `Incrementing cart item quantity failed because it does not exist`,
-        key: "id",
-        value: id,
-      });
+      if (!item) {
+        throw new OperationalError({
+          code: CartItemErrorsCodes.CartItemNotFound,
+          severity: "warning",
+          userMessage: "Bag item was not found",
+          logMessage: `Incrementing cart item quantity failed because it does not exist`,
+          key: "id",
+          value: id,
+        });
+      }
+
+      return item;
+    } catch (e) {
+      handleError(e);
     }
-
-    return item;
   }
 
   async decrementQuantity(id: string) {
@@ -119,47 +131,47 @@ export class CartItems {
     }
   }
 
-  async updateQuantity(id: string, quantity: number) {
-    if (quantity <= 0) {
-      throw new OperationalError({
-        code: CartItemErrorsCodes.QuantityInvalid,
-        severity: "warning",
-        userMessage: "Quantity should be a positive number",
-        logMessage: `Updating cart item quantity failed because the quantity is not positive`,
-        key: "id",
-        value: id,
-      });
+  async updateQuantity(
+    id: string,
+    quantity: z.infer<typeof cartItemQuantityschema>,
+  ) {
+    try {
+      const data = cartItemQuantityschema.parse(quantity);
+
+      const [item] = await this.store.db
+        .update(cartItems)
+        .set({ quantity: data })
+        .where(eq(cartItems.id, id))
+        .returning();
+
+      if (!item) {
+        throw new OperationalError({
+          code: CartItemErrorsCodes.CartItemNotFound,
+          severity: "warning",
+          userMessage: "Bag item was not found",
+          logMessage: `Updating cart item quantity failed because it does not exist`,
+          key: "id",
+          value: id,
+        });
+      }
+
+      return item;
+    } catch (e) {
+      handleError(e);
     }
-
-    const [item] = await this.store.db
-      .update(cartItems)
-      .set({ quantity })
-      .where(eq(cartItems.id, id))
-      .returning();
-
-    if (!item) {
-      throw new OperationalError({
-        code: CartItemErrorsCodes.CartItemNotFound,
-        severity: "warning",
-        userMessage: "Bag item was not found",
-        logMessage: `Updating cart item quantity failed because it does not exist`,
-        key: "id",
-        value: id,
-      });
-    }
-
-    return item;
   }
 
   async importItems(
-    userId: string,
-    items: { productId: string; variantId: string; quantity: number }[],
+    userId: z.infer<typeof userIdSchema>,
+    items: z.infer<typeof importCartItemsSchema>,
   ) {
     try {
+      const data = importCartItemsSchema.parse(items);
+
       const newItems = await this.store.db
         .insert(cartItems)
         .values(
-          items.map((el) => ({
+          data.map((el) => ({
             userId,
             productId: el.productId,
             quantity: el.quantity,
