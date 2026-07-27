@@ -70,7 +70,7 @@ export class CartItems {
       });
     }
 
-    return item.id;
+    return item;
   }
 
   async incrementQuantity(id: string) {
@@ -149,10 +149,6 @@ export class CartItems {
     }
 
     return item;
-  }
-
-  async clearItems(userId: string) {
-    await this.store.db.delete(cartItems).where(eq(cartItems.userId, userId));
   }
 
   async importItems(
