@@ -2,7 +2,6 @@ import { DrizzleQueryError } from "drizzle-orm";
 import pc from "picocolors";
 
 import { extractKeyValue } from "./string";
-import { ZodError } from "zod";
 
 export type ErrorSeverity = "error" | "warning" | "info";
 
