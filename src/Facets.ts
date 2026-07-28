@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 
 import { facets } from "./db/schema/facets.model";
-
 import { FacetErrorCodes, handleError, OperationalError } from "./lib/errors";
 
 import type { Store } from "./Store";
