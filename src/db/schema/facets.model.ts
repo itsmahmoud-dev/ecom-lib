@@ -20,7 +20,7 @@ export const facets = snakeCase.table(
     // "category: clothing" facet
     parentId: t
       .uuid()
-      .references((): AnyPgColumn => facets.id, { onDelete: "cascade" }),
+      .references((): AnyPgColumn => facets.id, { onDelete: "set null" }),
 
     target: facetTargetEnum().notNull().default("both"),
 
