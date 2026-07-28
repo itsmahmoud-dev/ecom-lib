@@ -5,7 +5,7 @@ import { BunSQLDatabase } from "drizzle-orm/bun-sql/postgres";
 import { relations } from "./db/relations";
 import { Products } from "./Products";
 import { Users } from "./Users";
-import { Facets } from "./Facets";
+import { Attributes } from "./Attributes";
 import { CartItems } from "./CartItems";
 import { Collections } from "./Collections";
 
@@ -25,7 +25,7 @@ export class Store {
   // Repositories
   users: Users;
   products: Products;
-  facets: Facets;
+  attributes: Attributes;
   cartItems: CartItems;
   collections: Collections;
 
@@ -39,7 +39,7 @@ export class Store {
 
     this.products = new Products(this);
     this.users = new Users(this);
-    this.facets = new Facets(this);
+    this.attributes = new Attributes(this);
     this.cartItems = new CartItems(this);
     this.collections = new Collections(this);
   }

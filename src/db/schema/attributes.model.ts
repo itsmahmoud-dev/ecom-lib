@@ -5,10 +5,14 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 
-export const facetTargetEnum = pgEnum("target", ["product", "variant", "both"]);
+export const attributeTargetEnum = pgEnum("target", [
+  "product",
+  "variant",
+  "both",
+]);
 
-export const facets = snakeCase.table(
-  "facets",
+export const attributes = snakeCase.table(
+  "attributes",
   (t) => ({
     id: t.uuid().primaryKey().defaultRandom(),
 
@@ -20,13 +24,15 @@ export const facets = snakeCase.table(
     // "category: clothing" facet
     parentId: t
       .uuid()
-      .references((): AnyPgColumn => facets.id, { onDelete: "set null" }),
+      .references((): AnyPgColumn => attributes.id, { onDelete: "set null" }),
 
-    target: facetTargetEnum().notNull().default("both"),
+    target: attributeTargetEnum().notNull().default("both"),
 
-    type: t.text().default("string"),
+    type: t.text({ enum: ["text", "number"] }).default("text"),
 
     formatting: t.text(),
+
+    iconName: t.text(),
 
     createdAt: t.timestamp({ withTimezone: true }).notNull().defaultNow(),
   }),

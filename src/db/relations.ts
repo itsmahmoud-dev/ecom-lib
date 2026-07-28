@@ -25,9 +25,9 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.productVariants.productId,
     }),
     // one product has many facets
-    attributes: r.many.facets({
+    attributes: r.many.attributes({
       from: r.products.id.through(r.productsToFacets.productId),
-      to: r.facets.id.through(r.productsToFacets.facetId),
+      to: r.attributes.id.through(r.productsToFacets.facetId),
     }),
     inCarts: r.many.cartItems({
       from: r.products.id,
@@ -42,11 +42,11 @@ export const relations = defineRelations(schema, (r) => ({
       optional: false,
     }),
     // one variant has many facets
-    attributes: r.many.facets({
+    attributes: r.many.attributes({
       from: r.productVariants.id.through(
         r.productVariantsToFacets.productVariantId,
       ),
-      to: r.facets.id.through(r.productVariantsToFacets.facetId),
+      to: r.attributes.id.through(r.productVariantsToFacets.facetId),
     }),
     // one variant can have many images
     images: r.many.images({
@@ -62,14 +62,14 @@ export const relations = defineRelations(schema, (r) => ({
   },
   facets: {
     // a facet can belong to one parent facet (e.g. "size" -> "category: clothing")
-    parent: r.one.facets({
-      from: r.facets.parentId,
-      to: r.facets.id,
+    parent: r.one.attributes({
+      from: r.attributes.parentId,
+      to: r.attributes.id,
     }),
     // a facet can have many child facets
-    children: r.many.facets({
-      from: r.facets.id,
-      to: r.facets.parentId,
+    children: r.many.attributes({
+      from: r.attributes.id,
+      to: r.attributes.parentId,
     }),
   },
   images: {
@@ -81,9 +81,9 @@ export const relations = defineRelations(schema, (r) => ({
       ),
     }),
     // one image can have many facets
-    attributes: r.many.facets({
+    attributes: r.many.attributes({
       from: r.images.id.through(r.imagesToFacets.imageId),
-      to: r.facets.id.through(r.imagesToFacets.facetId),
+      to: r.attributes.id.through(r.imagesToFacets.facetId),
     }),
   },
   cartItems: {

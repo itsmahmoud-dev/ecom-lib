@@ -1,6 +1,6 @@
 import { primaryKey, snakeCase } from "drizzle-orm/pg-core";
 import { images } from "./images.model";
-import { facets } from "./facets.model";
+import { attributes } from "./attributes.model";
 
 export const imagesToFacets = snakeCase.table(
   "imagesToFacets",
@@ -12,7 +12,7 @@ export const imagesToFacets = snakeCase.table(
     facetId: t
       .uuid()
       .notNull()
-      .references(() => facets.id, { onDelete: "cascade" }),
+      .references(() => attributes.id, { onDelete: "cascade" }),
   }),
   (t) => [primaryKey({ columns: [t.imageId, t.facetId] })],
 );

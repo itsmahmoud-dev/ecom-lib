@@ -5,7 +5,7 @@ import { store } from ".";
 import { faker } from "@faker-js/faker";
 import { FacetErrorCodes, OperationalError } from "../src/lib/errors";
 import { ProductErrorCodes } from "../src/lib/errors";
-import { facets, images, products } from "../src/db/schema";
+import { attributes, images, products } from "../src/db/schema";
 
 function makeImageFile(filename: string, type: string): File {
   const buffer = readFileSync(join(import.meta.dir, filename));
@@ -13,15 +13,15 @@ function makeImageFile(filename: string, type: string): File {
 }
 
 test("Add a product with red and blue variants and images", async () => {
-  const typeFacet = await store.facets.addFacet({
+  const typeFacet = await store.attributes.addFacet({
     key: "type",
     value: faker.string.alphanumeric(8),
   });
-  const redFacet = await store.facets.addFacet({
+  const redFacet = await store.attributes.addFacet({
     key: "color",
     value: `red-${faker.string.alphanumeric(8)}`,
   });
-  const blueFacet = await store.facets.addFacet({
+  const blueFacet = await store.attributes.addFacet({
     key: "color",
     value: `blue-${faker.string.alphanumeric(8)}`,
   });
@@ -41,8 +41,8 @@ test("Add a product with red and blue variants and images", async () => {
       attributes: [typeFacet!.id],
     },
     v: [
-      { price: 19.99, discount: 0, attributes: [redFacet!.id] },
-      { price: 24.99, discount: 5, attributes: [blueFacet!.id] },
+      { price: 19.99, discount: 0, attributes: [redFacet!.id], quantity: 12 },
+      { price: 24.99, discount: 5, attributes: [blueFacet!.id], quantity: 12 },
     ],
     i: [
       { file: redImage, attributes: [redFacet!.id] },
@@ -87,19 +87,19 @@ test("Add a product with red and blue variants and images", async () => {
 });
 
 test("Update a product's fields, attributes, variants and images", async () => {
-  const typeFacet = await store.facets.addFacet({
+  const typeFacet = await store.attributes.addFacet({
     key: "type",
     value: faker.string.alphanumeric(8),
   });
-  const redFacet = await store.facets.addFacet({
+  const redFacet = await store.attributes.addFacet({
     key: "color",
     value: `red-${faker.string.alphanumeric(8)}`,
   });
-  const blueFacet = await store.facets.addFacet({
+  const blueFacet = await store.attributes.addFacet({
     key: "color",
     value: `blue-${faker.string.alphanumeric(8)}`,
   });
-  const greenFacet = await store.facets.addFacet({
+  const greenFacet = await store.attributes.addFacet({
     key: "color",
     value: `green-${faker.string.alphanumeric(8)}`,
   });
@@ -115,7 +115,7 @@ test("Update a product's fields, attributes, variants and images", async () => {
       description: faker.commerce.productDescription(),
       attributes: [typeFacet!.id],
     },
-    v: [{ price: 19.99, discount: 0, attributes: [redFacet!.id] }],
+    v: [{ price: 19.99, discount: 0, attributes: [redFacet!.id], quantity: 12 }],
     i: [{ file: redImage, attributes: [redFacet!.id] }],
   });
 
@@ -246,7 +246,7 @@ test("Add a product with at least one non-existent facet", async () => {
 
 test("Add a product with a variant that has at least one non-existent facet", async () => {
   const image = makeImageFile("red-t-shirt.webp", "image/webp");
-  const greenFacet = await store.facets.addFacet({
+  const greenFacet = await store.attributes.addFacet({
     key: "color",
     value: `green-${faker.string.alphanumeric(8)}`,
   });
@@ -258,7 +258,14 @@ test("Add a product with a variant that has at least one non-existent facet", as
       description: faker.commerce.productDescription(),
       attributes: [greenFacet.id],
     },
-    v: [{ price: 19.99, discount: 0, attributes: [faker.string.uuid()] }],
+    v: [
+      {
+        price: 19.99,
+        discount: 0,
+        attributes: [faker.string.uuid()],
+        quantity: 12,
+      },
+    ],
     i: [{ file: image, attributes: [faker.string.uuid()] }],
   });
 
@@ -270,7 +277,7 @@ test("Add a product with a variant that has at least one non-existent facet", as
 test("Add a product with an image that has at least one non-existent facet", async () => {
   const image = makeImageFile("red-t-shirt.webp", "image/webp");
 
-  const greenFacet = await store.facets.addFacet({
+  const greenFacet = await store.attributes.addFacet({
     key: "color",
     value: `green-${faker.string.alphanumeric(8)}`,
   });
@@ -409,6 +416,6 @@ test("Update a product with the wrong version", async () => {
 afterAll(async () => {
   await store.db.delete(products);
   await store.db.delete(images);
-  await store.db.delete(facets);
+  await store.db.delete(attributes);
   await Bun.$`rm -f ${store.dataPath}/images/products/*`.quiet().nothrow();
 });

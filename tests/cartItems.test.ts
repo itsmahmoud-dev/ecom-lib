@@ -35,7 +35,7 @@ async function makeVariant() {
 
   const [variant] = await store.db
     .insert(productVariants)
-    .values({ productId: product!.id, price: 19.99 })
+    .values({ productId: product!.id, price: 19.99, quantity: 12 })
     .returning();
 
   return { product: product!, variant: variant! };
@@ -45,11 +45,11 @@ test("Add a cart item", async () => {
   const user = await makeUser();
   const { product, variant } = await makeVariant();
 
-  const item = await store.cartItems.addCartItem(
-    user.id,
-    product.id,
-    variant.id,
-  );
+  const item = await store.cartItems.addCartItem({
+    userId: user.id,
+    productId: product.id,
+    variantId: variant.id,
+  });
 
   expect(item).toBeDefined();
   expect(item![0]).toMatchObject({
@@ -64,9 +64,17 @@ test("Add a duplicate cart item for the same user, product and variant", async (
   const user = await makeUser();
   const { product, variant } = await makeVariant();
 
-  await store.cartItems.addCartItem(user.id, product.id, variant.id);
+  await store.cartItems.addCartItem({
+    userId: user.id,
+    productId: product.id,
+    variantId: variant.id,
+  });
 
-  const result = store.cartItems.addCartItem(user.id, product.id, variant.id);
+  const result = store.cartItems.addCartItem({
+    userId: user.id,
+    productId: product.id,
+    variantId: variant.id,
+  });
 
   expect(result).rejects.toThrowError(OperationalError);
 
@@ -78,11 +86,11 @@ test("Add a duplicate cart item for the same user, product and variant", async (
 test("Add a cart item for a user that does not exist", async () => {
   const { product, variant } = await makeVariant();
 
-  const result = store.cartItems.addCartItem(
-    faker.string.uuid(),
-    product.id,
-    variant.id,
-  );
+  const result = store.cartItems.addCartItem({
+    userId: faker.string.uuid(),
+    productId: product.id,
+    variantId: variant.id,
+  });
 
   expect(result).rejects.toThrow();
 
@@ -93,11 +101,11 @@ test("Add a cart item for a variant that does not exist", async () => {
   const user = await makeUser();
   const { product } = await makeVariant();
 
-  const result = store.cartItems.addCartItem(
-    user.id,
-    product.id,
-    faker.string.uuid(),
-  );
+  const result = store.cartItems.addCartItem({
+    userId: user.id,
+    productId: product.id,
+    variantId: faker.string.uuid(),
+  });
 
   expect(result).rejects.toThrow();
 
@@ -109,11 +117,11 @@ test("Add a cart item for a variant that does not exist", async () => {
 test("Add a cart item for a product that does not exist", async () => {
   const user = await makeUser();
 
-  const result = store.cartItems.addCartItem(
-    user.id,
-    faker.string.uuid(),
-    faker.string.uuid(),
-  );
+  const result = store.cartItems.addCartItem({
+    userId: user.id,
+    productId: faker.string.uuid(),
+    variantId: faker.string.uuid(),
+  });
 
   expect(result).rejects.toThrow();
 
@@ -135,7 +143,7 @@ test("Remove a cart item", async () => {
 
   const removedId = await store.cartItems.removeItem(item!.id);
 
-  expect(removedId).toBe(item!.id);
+  expect(removedId.id).toBe(item!.id);
 
   const dbItem = await store.db.query.cartItems.findFirst({
     where: { id: item!.id },
