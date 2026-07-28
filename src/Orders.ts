@@ -127,40 +127,44 @@ export class Order {
     id: string,
     status: (typeof orders.status.enumValues)[number],
   ) {
-    const order = await this.store.db.query.orders.findFirst({
-      where: { id },
-    });
-
-    if (!order) {
-      throw new OperationalError({
-        code: OrderErrorCodes.OrderNotFound,
-        severity: "warning",
-        logMessage:
-          "Chaning an order's status failed becuase the order does not exist",
-        userMessage: "Order was not found",
-        key: "id",
-        value: id,
+    try {
+      const order = await this.store.db.query.orders.findFirst({
+        where: { id },
       });
+
+      if (!order) {
+        throw new OperationalError({
+          code: OrderErrorCodes.OrderNotFound,
+          severity: "warning",
+          logMessage:
+            "Chaning an order's status failed becuase the order does not exist",
+          userMessage: "Order was not found",
+          key: "id",
+          value: id,
+        });
+      }
+
+      if (status === "canceled" && order?.status !== "pending") {
+        throw new OperationalError({
+          code: OrderErrorCodes.InvalidOrderStatus,
+          severity: "warning",
+          logMessage:
+            "Changing an order's status failed becuase the order is not in the pending state. Please contact support.",
+          userMessage: "Order can't be cancelled at this stage",
+          key: "id",
+          value: id,
+        });
+      }
+
+      const [updatedOrder] = await this.store.db
+        .update(orders)
+        .set({ status })
+        .where(eq(orders.id, id))
+        .returning();
+
+      return updatedOrder;
+    } catch (e) {
+      handleError(e);
     }
-
-    if (status === "canceled" && order?.status !== "pending") {
-      throw new OperationalError({
-        code: OrderErrorCodes.InvalidOrderStatus,
-        severity: "warning",
-        logMessage:
-          "Changing an order's status failed becuase the order is not in the pending state",
-        userMessage: "Order can't be cancelled at this stage",
-        key: "id",
-        value: id,
-      });
-    }
-
-    const [updatedOrder] = await this.store.db
-      .update(orders)
-      .set({ status })
-      .where(eq(orders.id, id))
-      .returning();
-
-    return updatedOrder;
   }
 }
