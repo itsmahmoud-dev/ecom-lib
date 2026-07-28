@@ -28,7 +28,10 @@ export const attributes = snakeCase.table(
 
     target: attributeTargetEnum().notNull().default("both"),
 
-    type: t.text({ enum: ["text", "number"] }).default("text"),
+    type: t
+      .text({ enum: ["text", "number"] })
+      .notNull()
+      .default("text"),
 
     formatting: t.text(),
 

@@ -4,6 +4,8 @@ import { attributes } from "./db/schema/attributes.model";
 import { FacetErrorCodes, handleError, OperationalError } from "./lib/errors";
 
 import type { Store } from "./Store";
+import type z from "zod";
+import { addAttributeSchema } from "./types/attributes.types";
 
 export class Attributes {
   store: Store;
@@ -36,22 +38,17 @@ export class Attributes {
    * @returns The new facet
    * @throws {OperationalError} `F000` (`FacetAlreadyExists`) if the facet already exists
    */
-  async addFacet(
-    params: Omit<typeof attributes.$inferInsert, "id" | "createdAt">,
-  ) {
+  async addFacet(params: z.infer<typeof addAttributeSchema>) {
     try {
+      const data = addAttributeSchema.parse(params);
+
       const [facet] = await this.store.db
         .insert(attributes)
-        .values({ ...params })
+        .values({ ...data })
         .returning();
 
       if (!facet) {
-        throw new OperationalError({
-          code: "",
-          severity: "error",
-          logMessage: "Error inserting a facet",
-          userMessage: "Something went wrong",
-        });
+        throw new Error("Error inserting a facet");
       }
 
       return facet;
