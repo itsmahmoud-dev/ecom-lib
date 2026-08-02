@@ -1,26 +1,10 @@
 import z from "zod";
 
-export const collectionId = z.uuid({
-  error: (issue) =>
-    issue.input
-      ? "That doesn't look like a valid collection"
-      : "Select a collection",
-});
+export const collectionId = z.uuid();
 
-export const productIds = z
-  .array(
-    z.uuid({
-      error: (issue) =>
-        issue.input
-          ? "That doesn't look like a valid product"
-          : "Each product must be specified",
-    }),
-  )
-  .min(1, "Select at least one product");
+export const productIds = z.array(z.uuid()).min(1);
 
-export const addCollectionParamSchema = z.string(
-  "Please enter a collection name",
-);
+export const addCollectionParamSchema = z.string();
 
 export const updateCollectionParamSchema = z.strictObject({
   id: collectionId,

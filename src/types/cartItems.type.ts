@@ -1,32 +1,12 @@
 import z from "zod";
 
-export const userIdSchema = z.uuid({
-  error: (issue) =>
-    issue.input
-      ? "That doesn't look like a valid user"
-      : "Something went wrong, refresh and try again",
-});
+export const userIdSchema = z.uuid();
 
-export const productIdSchema = z.uuid({
-  error: (issue) =>
-    issue.input
-      ? "That doesn't look like a valid product"
-      : "Please select a product",
-});
+export const productIdSchema = z.uuid();
 
-export const variantIdSchema = z.uuid({
-  error: (issue) =>
-    issue.input
-      ? "That doesn't look like a valid variant"
-      : "Please select a variant",
-});
+export const variantIdSchema = z.uuid();
 
-export const cartItemIdSchema = z.uuid({
-  error: (issue) =>
-    issue.input
-      ? "That doesn't look like a valid cart item"
-      : "Please select a cart item",
-});
+export const cartItemIdSchema = z.uuid();
 
 export const addCartItemSchema = z.strictObject({
   userId: userIdSchema,
@@ -34,9 +14,7 @@ export const addCartItemSchema = z.strictObject({
   variantId: variantIdSchema,
 });
 
-export const cartItemQuantityschema = z
-  .int("That doesn't look like a valid number")
-  .positive("Cart item quantity should be positive");
+export const cartItemQuantityschema = z.int().positive();
 
 export const importCartItemsSchema = z
   .strictObject({
@@ -45,4 +23,4 @@ export const importCartItemsSchema = z
     quantity: cartItemQuantityschema,
   })
   .array()
-  .min(1, "At least one cart item is required");
+  .min(1);
