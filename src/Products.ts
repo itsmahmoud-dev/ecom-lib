@@ -82,12 +82,7 @@ export class Products {
           .returning();
 
         if (!product) {
-          throw new OperationalError({
-            code: "",
-            severity: "error",
-            logMessage: "Error inserting a product",
-            userMessage: "Something went wrong",
-          });
+          throw new Error("Error inserting a product");
         }
 
         // assigning attributes for the product
@@ -111,12 +106,7 @@ export class Products {
             .returning();
 
           if (!variant) {
-            throw new OperationalError({
-              code: "",
-              severity: "error",
-              logMessage: "Error inserting a product variant",
-              userMessage: "Something went wrong",
-            });
+            throw new Error("Error inserting a product variant");
           }
 
           // assigning attributes for the variant
@@ -144,12 +134,7 @@ export class Products {
             .returning();
 
           if (!image) {
-            throw new OperationalError({
-              code: "",
-              severity: "error",
-              logMessage: "Error inserting a variant image",
-              userMessage: "Something went wrong",
-            });
+            throw new Error("Error inserting a variant image");
           }
 
           imageBuffersToSave.push({
@@ -345,12 +330,7 @@ export class Products {
                 .returning();
 
               if (!newVariant) {
-                throw new OperationalError({
-                  code: "",
-                  severity: "error",
-                  logMessage: "Error inserting a variant",
-                  userMessage: "Something went wrong",
-                });
+                throw new Error("Error inserting a variant");
               }
 
               // assigning attributes for the variant
@@ -429,12 +409,7 @@ export class Products {
                 .returning();
 
               if (!newImage) {
-                throw new OperationalError({
-                  code: "",
-                  severity: "error",
-                  logMessage: "Error inserting a product image",
-                  userMessage: "Something went wrong",
-                });
+                throw new Error("Error inserting a product image");
               }
 
               imageBuffersToSave.push({

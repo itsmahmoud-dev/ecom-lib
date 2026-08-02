@@ -95,12 +95,7 @@ export class Users {
         });
 
       if (!user) {
-        throw new OperationalError({
-          code: "",
-          severity: "error",
-          logMessage: "Error inserting a user",
-          userMessage: "Something went wrong",
-        });
+        throw new Error("Error inserting a user");
       }
 
       return {
@@ -642,12 +637,7 @@ export class Users {
         .returning();
 
       if (!newAddress) {
-        throw new OperationalError({
-          code: "",
-          severity: "error",
-          userMessage: "Something went wrong",
-          logMessage: "Error inserting an address",
-        });
+        throw new Error("Error inserting an address");
       }
 
       return newAddress;
