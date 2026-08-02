@@ -16,6 +16,7 @@ export const relations = defineRelations(schema, (r) => ({
     user: r.one.users({
       from: r.addresses.userId,
       to: r.users.id,
+      optional: false,
     }),
   },
   products: {
@@ -65,6 +66,7 @@ export const relations = defineRelations(schema, (r) => ({
     parent: r.one.attributes({
       from: r.attributes.parentId,
       to: r.attributes.id,
+      optional: true,
     }),
     // a facet can have many child facets
     children: r.many.attributes({
@@ -91,16 +93,19 @@ export const relations = defineRelations(schema, (r) => ({
     product: r.one.products({
       from: r.cartItems.productId,
       to: r.products.id,
+      optional: false,
     }),
     // one cart item can have one variant
     variant: r.one.productVariants({
       from: r.cartItems.variantId,
       to: r.productVariants.id,
+      optional: false,
     }),
     // one cart item can have one user
     user: r.one.users({
       from: r.cartItems.userId,
       to: r.users.id,
+      optional: false,
     }),
   },
   collections: {
