@@ -135,7 +135,7 @@ test("Update a product's fields, attributes, variants and images", async () => {
 
   const newName = faker.commerce.productName();
 
-  await store.products.updateproduct({
+  await store.products.updateProduct({
     p: {
       id: created!.id,
       name: newName,
@@ -299,7 +299,7 @@ test("Add a product with an image that has at least one non-existent facet", asy
 });
 
 test("Update a product that doesn't exist", async () => {
-  const result = store.products.updateproduct({
+  const result = store.products.updateProduct({
     p: {
       id: faker.string.uuid(),
       name: faker.commerce.productName(),
@@ -334,7 +334,7 @@ test("Update a product with a duplicate barcode", async () => {
 
   expect(product).toBeDefined();
 
-  const result = store.products.updateproduct({
+  const result = store.products.updateProduct({
     p: { id: product!.id, barcode, version: product!.version },
   });
 
@@ -356,7 +356,7 @@ test("Update a variant that doesn't exist", async () => {
 
   expect(product).toBeDefined();
 
-  const result = store.products.updateproduct({
+  const result = store.products.updateProduct({
     p: { id: product!.id, version: product!.version },
     v: [{ id: faker.string.uuid(), price: 19.99 }],
   });
@@ -379,7 +379,7 @@ test("Update an image that doesn't exist", async () => {
 
   expect(product).toBeDefined();
 
-  const result = store.products.updateproduct({
+  const result = store.products.updateProduct({
     p: { id: product!.id, version: product!.version },
     i: [{ id: faker.string.uuid(), attributes: [] }],
   });
@@ -402,7 +402,7 @@ test("Update a product with the wrong version", async () => {
 
   expect(product).toBeDefined();
 
-  const result = store.products.updateproduct({
+  const result = store.products.updateProduct({
     p: { id: product!.id, version: faker.number.int() },
     i: [{ id: faker.string.uuid(), attributes: [] }],
   });

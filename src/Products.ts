@@ -174,7 +174,7 @@ export class Products {
     }
   }
 
-  async updateproduct(params: UpdateProductParams) {
+  async updateProduct(params: UpdateProductParams) {
     try {
       const imageBuffersToSave: { filename: string; buffer: Buffer }[] = [];
 
