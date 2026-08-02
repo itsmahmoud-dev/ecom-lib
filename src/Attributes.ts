@@ -1,7 +1,11 @@
 import { eq } from "drizzle-orm";
 
 import { attributes } from "./db/schema/attributes.model";
-import { FacetErrorCodes, handleError, OperationalError } from "./lib/errors";
+import {
+  AttributeErrorCodes,
+  handleError,
+  OperationalError,
+} from "./lib/errors";
 
 import type { Store } from "./Store";
 import type z from "zod";
@@ -15,63 +19,50 @@ export class Attributes {
   }
 
   /**
-   * Retrieves facets by key.
+   * Retrieves attributes by key.
    * @param key
-   * @returns array of facets matching the key
+   * @returns array of attributes matching the key
    */
-  async getFacetsByKey(key: string) {
+  async getAttributesByKey(key: string) {
     return await this.store.db.query.attributes.findMany({
       where: { key },
     });
   }
 
-  async getFacetsByParent(parentId: string) {
+  async getAttributesByParent(parentId: string) {
     return await this.store.db.query.attributes.findMany({
       where: { parentId },
     });
   }
 
-  /**
-   * Adds a new facet.
-   * @param key
-   * @param value
-   * @returns The new facet
-   * @throws {OperationalError} `F000` (`FacetAlreadyExists`) if the facet already exists
-   */
-  async addFacet(params: z.infer<typeof addAttributeSchema>) {
+  async addAttribute(params: z.infer<typeof addAttributeSchema>) {
     try {
       const data = addAttributeSchema.parse(params);
 
-      const [facet] = await this.store.db
+      const [attr] = await this.store.db
         .insert(attributes)
         .values({ ...data })
         .returning();
 
-      if (!facet) {
-        throw new Error("Error inserting a facet");
+      if (!attr) {
+        throw new Error("Error inserting an attribute");
       }
 
-      return facet;
+      return attr;
     } catch (e) {
       handleError(e);
     }
   }
 
-  /**
-   * Removes a facet.
-   * @param key
-   * @param value
-   * @throws {OperationalError} `F001` (`FacetNotFound`) if the facet is not found
-   */
-  async removeFacet(id: string) {
-    const [facet] = await this.store.db
+  async removeAttribute(id: string) {
+    const [attr] = await this.store.db
       .delete(attributes)
       .where(eq(attributes.id, id))
       .returning();
 
-    if (!facet) {
+    if (!attr) {
       throw new OperationalError({
-        code: FacetErrorCodes.FacetNotFound,
+        code: AttributeErrorCodes.AttributeNotFound,
         severity: "warning",
         userMessage: "Attribute was not found",
         logMessage: `Removing an attribute failed because it does not exist`,

@@ -20,8 +20,6 @@ export const attributes = snakeCase.table(
 
     value: t.text().notNull(),
 
-    // the facet this facet belongs to, e.g. a "size" facet whose parent is the
-    // "category: clothing" facet
     parentId: t
       .uuid()
       .references((): AnyPgColumn => attributes.id, { onDelete: "set null" }),

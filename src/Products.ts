@@ -3,11 +3,11 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 
 import {
   images,
-  imagesToFacets,
+  imagesToAttributes,
   products,
-  productsToFacets,
+  productsToAttributes,
   productVariants,
-  productVariantsToFacets,
+  productVariantsToAttribute,
   productVariantsToImages,
 } from "./db/schema";
 import { handleError, ProductErrorCodes, OperationalError } from "./lib/errors";
@@ -86,10 +86,10 @@ export class Products {
         }
 
         // assigning attributes for the product
-        await tx.insert(productsToFacets).values(
+        await tx.insert(productsToAttributes).values(
           params.p.attributes.map((id) => ({
             productId: product.id,
-            facetId: id,
+            attributeId: id,
           })),
         );
 
@@ -110,10 +110,10 @@ export class Products {
           }
 
           // assigning attributes for the variant
-          await tx.insert(productVariantsToFacets).values(
+          await tx.insert(productVariantsToAttribute).values(
             el.attributes.map((id) => ({
               productVariantId: variant.id,
-              facetId: id,
+              attributeId: id,
             })),
           );
         }
@@ -146,9 +146,12 @@ export class Products {
 
           // assgining significant facets to images
           await tx
-            .insert(imagesToFacets)
+            .insert(imagesToAttributes)
             .values(
-              el.attributes.map((id) => ({ imageId: image.id, facetId: id })),
+              el.attributes.map((id) => ({
+                imageId: image.id,
+                attributeId: id,
+              })),
             );
 
           const variantsWithSameAttributesIds = allVariantIds.filter((v) =>
@@ -242,19 +245,19 @@ export class Products {
 
           if (added.length) {
             await tx
-              .insert(productsToFacets)
+              .insert(productsToAttributes)
               .values(
-                added.map((el) => ({ facetId: el, productId: product.id })),
+                added.map((el) => ({ attributeId: el, productId: product.id })),
               );
           }
 
           if (removed.length) {
             await tx
-              .delete(productsToFacets)
+              .delete(productsToAttributes)
               .where(
                 and(
-                  eq(productsToFacets.productId, product.id),
-                  inArray(productsToFacets.facetId, removed),
+                  eq(productsToAttributes.productId, product.id),
+                  inArray(productsToAttributes.attributeId, removed),
                 ),
               );
           }
@@ -296,21 +299,21 @@ export class Products {
                 );
 
                 if (added.length) {
-                  await tx.insert(productVariantsToFacets).values(
+                  await tx.insert(productVariantsToAttribute).values(
                     added.map((el) => ({
                       productVariantId: id,
-                      facetId: el,
+                      attributeId: el,
                     })),
                   );
                 }
 
                 if (removed.length) {
                   await tx
-                    .delete(productVariantsToFacets)
+                    .delete(productVariantsToAttribute)
                     .where(
                       and(
-                        eq(productVariantsToFacets.productVariantId, id),
-                        inArray(productVariantsToFacets.facetId, removed),
+                        eq(productVariantsToAttribute.productVariantId, id),
+                        inArray(productVariantsToAttribute.attributeId, removed),
                       ),
                     );
                 }
@@ -334,10 +337,10 @@ export class Products {
               }
 
               // assigning attributes for the variant
-              await tx.insert(productVariantsToFacets).values(
-                attributes.map((facetId) => ({
+              await tx.insert(productVariantsToAttribute).values(
+                attributes.map((attributeId) => ({
                   productVariantId: newVariant.id,
-                  facetId,
+                  attributeId,
                 })),
               );
             }
@@ -379,21 +382,21 @@ export class Products {
               );
 
               if (added.length) {
-                await tx.insert(imagesToFacets).values(
+                await tx.insert(imagesToAttributes).values(
                   added.map((el) => ({
                     imageId: id,
-                    facetId: el,
+                    attributeId: el,
                   })),
                 );
               }
 
               if (removed.length) {
                 await tx
-                  .delete(imagesToFacets)
+                  .delete(imagesToAttributes)
                   .where(
                     and(
-                      eq(imagesToFacets.imageId, id),
-                      inArray(imagesToFacets.facetId, removed),
+                      eq(imagesToAttributes.imageId, id),
+                      inArray(imagesToAttributes.attributeId, removed),
                     ),
                   );
               }
@@ -419,9 +422,9 @@ export class Products {
                 filename,
               });
 
-              await tx.insert(imagesToFacets).values(
+              await tx.insert(imagesToAttributes).values(
                 attributes.map((el) => ({
-                  facetId: el,
+                  attributeId: el,
                   imageId: newImage.id,
                 })),
               );

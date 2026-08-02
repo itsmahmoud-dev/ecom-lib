@@ -25,10 +25,10 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.products.id,
       to: r.productVariants.productId,
     }),
-    // one product has many facets
+    // one product has many attributes
     attributes: r.many.attributes({
-      from: r.products.id.through(r.productsToFacets.productId),
-      to: r.attributes.id.through(r.productsToFacets.facetId),
+      from: r.products.id.through(r.productsToAttributes.productId),
+      to: r.attributes.id.through(r.productsToAttributes.attributeId),
     }),
     inCarts: r.many.cartItems({
       from: r.products.id,
@@ -42,12 +42,12 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.products.id,
       optional: false,
     }),
-    // one variant has many facets
+    // one variant has many attributes
     attributes: r.many.attributes({
       from: r.productVariants.id.through(
-        r.productVariantsToFacets.productVariantId,
+        r.productVariantsToAttribute.productVariantId,
       ),
-      to: r.attributes.id.through(r.productVariantsToFacets.facetId),
+      to: r.attributes.id.through(r.productVariantsToAttribute.attributeId),
     }),
     // one variant can have many images
     images: r.many.images({
@@ -61,14 +61,14 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.cartItems.variantId,
     }),
   },
-  facets: {
-    // a facet can belong to one parent facet (e.g. "size" -> "category: clothing")
+  attributes: {
+    // an attribute can belong to one parent attribute (e.g. "size" -> "category: clothing")
     parent: r.one.attributes({
       from: r.attributes.parentId,
       to: r.attributes.id,
       optional: true,
     }),
-    // a facet can have many child facets
+    // an attribute can have many child attributes
     children: r.many.attributes({
       from: r.attributes.id,
       to: r.attributes.parentId,
@@ -82,10 +82,10 @@ export const relations = defineRelations(schema, (r) => ({
         r.productVariantsToImages.productVariantId,
       ),
     }),
-    // one image can have many facets
+    // one image can have many attributes
     attributes: r.many.attributes({
-      from: r.images.id.through(r.imagesToFacets.imageId),
-      to: r.attributes.id.through(r.imagesToFacets.facetId),
+      from: r.images.id.through(r.imagesToAttributes.imageId),
+      to: r.attributes.id.through(r.imagesToAttributes.attributeId),
     }),
   },
   cartItems: {

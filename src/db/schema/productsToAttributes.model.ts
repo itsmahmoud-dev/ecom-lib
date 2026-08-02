@@ -2,17 +2,17 @@ import { primaryKey, snakeCase } from "drizzle-orm/pg-core";
 import { products } from "./products.model";
 import { attributes } from "./attributes.model";
 
-export const productsToFacets = snakeCase.table(
-  "productsToFacets",
+export const productsToAttributes = snakeCase.table(
+  "productsToAttributes",
   (t) => ({
     productId: t
       .uuid()
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
-    facetId: t
+    attributeId: t
       .uuid()
       .notNull()
       .references(() => attributes.id, { onDelete: "cascade" }),
   }),
-  (t) => [primaryKey({ columns: [t.productId, t.facetId] })],
+  (t) => [primaryKey({ columns: [t.productId, t.attributeId] })],
 );

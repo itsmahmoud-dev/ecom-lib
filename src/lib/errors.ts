@@ -29,9 +29,9 @@ export enum ProductErrorCodes {
   VersionMismatch = "P004",
 }
 
-export enum FacetErrorCodes {
-  FacetAlreadyExists = "F000",
-  FacetNotFound = "F001",
+export enum AttributeErrorCodes {
+  AttributeAlreadyExists = "F000",
+  AttributeNotFound = "F001",
 }
 
 export enum CartItemErrorsCodes {
@@ -92,14 +92,14 @@ export class OperationalError extends Error {
 export function handleError(e: unknown): never {
   if (isUniqueViolationError(e)) {
     const [key, value] = extractKeyValue(e.cause.detail);
-    if (e.cause.table === "facets") {
+    if (e.cause.table === "attributes") {
       if (key?.includes("key") || key?.includes("value")) {
         throw new OperationalError({
-          code: FacetErrorCodes.FacetAlreadyExists,
+          code: AttributeErrorCodes.AttributeAlreadyExists,
           severity: "info",
-          logMessage: `Attempt to insert/update facet with key/value (${value}) failed because a facet with the same key/value already exists.`,
-          userMessage: "Facet already exists",
-          cause: `Facet (${value}) already exists`,
+          logMessage: `Attempt to insert/update attribute with key/value (${value}) failed because an attribute with the same key/value already exists.`,
+          userMessage: "Attribute already exists",
+          cause: `Attribute (${value}) already exists`,
           key: key?.split(","),
           value: value?.split(","),
         });
@@ -183,16 +183,18 @@ export function handleError(e: unknown): never {
       });
     }
     if (
-      e.cause.constraint === "productsToFacets_facet_id_facets_id_fkey" ||
-      e.cause.constraint === "productVariantsToFacets_facet_id_facets_id_fkey" ||
-      e.cause.constraint === "imagesToFacets_facet_id_facets_id_fkey"
+      e.cause.constraint ===
+        "productsToAttributes_attribute_id_attributes_id_fkey" ||
+      e.cause.constraint ===
+        "productVariantsToAttributes_attribute_id_attribute_id_fkey" ||
+      e.cause.constraint === "imagesToAttributes_attribute_id_attributes_id_fkey"
     ) {
       throw new OperationalError({
-        code: FacetErrorCodes.FacetNotFound,
+        code: AttributeErrorCodes.AttributeNotFound,
         severity: "warning",
-        userMessage: "One of the facets was not found",
+        userMessage: "One of the attributes was not found",
         logMessage:
-          "Adding a cart item failed because one of the facets was not found",
+          "Adding a cart item failed because one of the attributes was not found",
         key,
         value,
       });

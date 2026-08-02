@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
-import { FacetErrorCodes, OperationalError } from "../src/lib/errors";
+import { AttributeErrorCodes, OperationalError } from "../src/lib/errors";
 import { ProductErrorCodes } from "../src/lib/errors";
 import { attributes, images, products } from "../src/db/schema";
 
@@ -13,15 +13,15 @@ function makeImageFile(filename: string, type: string): File {
 }
 
 test("Add a product with red and blue variants and images", async () => {
-  const typeFacet = await store.attributes.addFacet({
+  const typeAttribute = await store.attributes.addAttribute({
     key: "type",
     value: faker.string.alphanumeric(8),
   });
-  const redFacet = await store.attributes.addFacet({
+  const redAttribute = await store.attributes.addAttribute({
     key: "color",
     value: `red-${faker.string.alphanumeric(8)}`,
   });
-  const blueFacet = await store.attributes.addFacet({
+  const blueAttribute = await store.attributes.addAttribute({
     key: "color",
     value: `blue-${faker.string.alphanumeric(8)}`,
   });
@@ -38,15 +38,25 @@ test("Add a product with red and blue variants and images", async () => {
       barcode,
       active: true,
       description: faker.commerce.productDescription(),
-      attributes: [typeFacet!.id],
+      attributes: [typeAttribute!.id],
     },
     v: [
-      { price: 19.99, discount: 0, attributes: [redFacet!.id], quantity: 12 },
-      { price: 24.99, discount: 5, attributes: [blueFacet!.id], quantity: 12 },
+      {
+        price: 19.99,
+        discount: 0,
+        attributes: [redAttribute!.id],
+        quantity: 12,
+      },
+      {
+        price: 24.99,
+        discount: 5,
+        attributes: [blueAttribute!.id],
+        quantity: 12,
+      },
     ],
     i: [
-      { file: redImage, attributes: [redFacet!.id] },
-      { file: blueImage, attributes: [blueFacet!.id] },
+      { file: redImage, attributes: [redAttribute!.id] },
+      { file: blueImage, attributes: [blueAttribute!.id] },
     ],
   });
 
@@ -63,14 +73,14 @@ test("Add a product with red and blue variants and images", async () => {
   expect(product).toBeDefined();
   expect(product!.barcode).toBe(barcode);
   expect(product!.attributes).toHaveLength(1);
-  expect(product!.attributes[0]!.id).toBe(typeFacet!.id);
+  expect(product!.attributes[0]!.id).toBe(typeAttribute!.id);
   expect(product!.variants).toHaveLength(2);
 
   const redVariant = product!.variants.find((v) =>
-    v.attributes.some((a) => a.id === redFacet!.id),
+    v.attributes.some((a) => a.id === redAttribute!.id),
   );
   const blueVariant = product!.variants.find((v) =>
-    v.attributes.some((a) => a.id === blueFacet!.id),
+    v.attributes.some((a) => a.id === blueAttribute!.id),
   );
 
   expect(redVariant).toMatchObject({ price: 19.99, discount: 0 });
@@ -87,19 +97,19 @@ test("Add a product with red and blue variants and images", async () => {
 });
 
 test("Update a product's fields, attributes, variants and images", async () => {
-  const typeFacet = await store.attributes.addFacet({
+  const typeAttribute = await store.attributes.addAttribute({
     key: "type",
     value: faker.string.alphanumeric(8),
   });
-  const redFacet = await store.attributes.addFacet({
+  const redAttribute = await store.attributes.addAttribute({
     key: "color",
     value: `red-${faker.string.alphanumeric(8)}`,
   });
-  const blueFacet = await store.attributes.addFacet({
+  const blueAttribute = await store.attributes.addAttribute({
     key: "color",
     value: `blue-${faker.string.alphanumeric(8)}`,
   });
-  const greenFacet = await store.attributes.addFacet({
+  const greenAttribute = await store.attributes.addAttribute({
     key: "color",
     value: `green-${faker.string.alphanumeric(8)}`,
   });
@@ -113,10 +123,17 @@ test("Update a product's fields, attributes, variants and images", async () => {
       name: productName,
       active: true,
       description: faker.commerce.productDescription(),
-      attributes: [typeFacet!.id],
+      attributes: [typeAttribute!.id],
     },
-    v: [{ price: 19.99, discount: 0, attributes: [redFacet!.id], quantity: 12 }],
-    i: [{ file: redImage, attributes: [redFacet!.id] }],
+    v: [
+      {
+        price: 19.99,
+        discount: 0,
+        attributes: [redAttribute!.id],
+        quantity: 12,
+      },
+    ],
+    i: [{ file: redImage, attributes: [redAttribute!.id] }],
   });
 
   const created = await store.db.query.products.findFirst({
@@ -139,7 +156,7 @@ test("Update a product's fields, attributes, variants and images", async () => {
     p: {
       id: created!.id,
       name: newName,
-      attributes: [blueFacet!.id],
+      attributes: [blueAttribute!.id],
       version: created!.version,
     },
     v: [
@@ -147,13 +164,13 @@ test("Update a product's fields, attributes, variants and images", async () => {
         id: originalVariant.id,
         price: 29.99,
         discount: 0,
-        attributes: [blueFacet!.id],
+        attributes: [blueAttribute!.id],
       },
-      { price: 34.99, discount: 0, attributes: [greenFacet!.id] },
+      { price: 34.99, discount: 0, attributes: [greenAttribute!.id] },
     ],
     i: [
-      { id: originalImage.id, attributes: [blueFacet!.id] },
-      { file: greenImage, attributes: [greenFacet!.id] },
+      { id: originalImage.id, attributes: [blueAttribute!.id] },
+      { file: greenImage, attributes: [greenAttribute!.id] },
     ],
   });
 
@@ -170,7 +187,7 @@ test("Update a product's fields, attributes, variants and images", async () => {
   expect(updated).toBeDefined();
   expect(updated!.name).toBe(newName);
   expect(updated!.attributes).toHaveLength(1);
-  expect(updated!.attributes[0]!.id).toBe(blueFacet!.id);
+  expect(updated!.attributes[0]!.id).toBe(blueAttribute!.id);
   expect(updated!.variants).toHaveLength(2);
 
   const updatedVariant = updated!.variants.find(
@@ -180,18 +197,18 @@ test("Update a product's fields, attributes, variants and images", async () => {
 
   expect(updatedVariant).toMatchObject({ price: 29.99, discount: 0 });
   expect(updatedVariant.attributes).toHaveLength(1);
-  expect(updatedVariant.attributes[0]!.id).toBe(blueFacet!.id);
+  expect(updatedVariant.attributes[0]!.id).toBe(blueAttribute!.id);
 
   expect(newVariant).toMatchObject({ price: 34.99, discount: 0 });
   expect(newVariant.attributes).toHaveLength(1);
-  expect(newVariant.attributes[0]!.id).toBe(greenFacet!.id);
+  expect(newVariant.attributes[0]!.id).toBe(greenAttribute!.id);
 
   const updatedImage = updatedVariant.images.find(
     (img) => img.id === originalImage.id,
   );
   expect(updatedImage).toBeDefined();
   expect(updatedImage!.attributes).toHaveLength(1);
-  expect(updatedImage!.attributes[0]!.id).toBe(blueFacet!.id);
+  expect(updatedImage!.attributes[0]!.id).toBe(blueAttribute!.id);
 
   expect(newVariant.images).toHaveLength(1);
   expect(existsSync(`${store.dataPath}${newVariant.images[0]!.path}`)).toBe(
@@ -241,12 +258,14 @@ test("Add a product with at least one non-existent facet", async () => {
 
   expect(result).rejects.toThrow();
 
-  expect(result).rejects.toMatchObject({ code: FacetErrorCodes.FacetNotFound });
+  expect(result).rejects.toMatchObject({
+    code: AttributeErrorCodes.AttributeNotFound,
+  });
 });
 
 test("Add a product with a variant that has at least one non-existent facet", async () => {
   const image = makeImageFile("red-t-shirt.webp", "image/webp");
-  const greenFacet = await store.attributes.addFacet({
+  const greenAttribute = await store.attributes.addAttribute({
     key: "color",
     value: `green-${faker.string.alphanumeric(8)}`,
   });
@@ -256,7 +275,7 @@ test("Add a product with a variant that has at least one non-existent facet", as
       name: faker.commerce.productName(),
       active: true,
       description: faker.commerce.productDescription(),
-      attributes: [greenFacet.id],
+      attributes: [greenAttribute.id],
     },
     v: [
       {
@@ -271,13 +290,15 @@ test("Add a product with a variant that has at least one non-existent facet", as
 
   expect(result).rejects.toThrow();
 
-  expect(result).rejects.toMatchObject({ code: FacetErrorCodes.FacetNotFound });
+  expect(result).rejects.toMatchObject({
+    code: AttributeErrorCodes.AttributeNotFound,
+  });
 });
 
 test("Add a product with an image that has at least one non-existent facet", async () => {
   const image = makeImageFile("red-t-shirt.webp", "image/webp");
 
-  const greenFacet = await store.attributes.addFacet({
+  const greenAttribute = await store.attributes.addAttribute({
     key: "color",
     value: `green-${faker.string.alphanumeric(8)}`,
   });
@@ -287,7 +308,7 @@ test("Add a product with an image that has at least one non-existent facet", asy
       name: faker.commerce.productName(),
       active: true,
       description: faker.commerce.productDescription(),
-      attributes: [greenFacet.id],
+      attributes: [greenAttribute.id],
     },
     v: [],
     i: [{ file: image, attributes: [faker.string.uuid()] }],
@@ -295,7 +316,9 @@ test("Add a product with an image that has at least one non-existent facet", asy
 
   expect(result).rejects.toThrow();
 
-  expect(result).rejects.toMatchObject({ code: FacetErrorCodes.FacetNotFound });
+  expect(result).rejects.toMatchObject({
+    code: AttributeErrorCodes.AttributeNotFound,
+  });
 });
 
 test("Update a product that doesn't exist", async () => {
