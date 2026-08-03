@@ -8,7 +8,7 @@ import { attributes } from "../src/db/schema";
 test("Get attributes by key", async () => {
   const key = faker.string.alphanumeric(12);
 
-  const [facet1, facet2] = await Promise.all([
+  const [attr1, attr2] = await Promise.all([
     store.attributes.addAttribute({ key, value: faker.string.alphanumeric(8) }),
     store.attributes.addAttribute({ key, value: faker.string.alphanumeric(8) }),
   ]);
@@ -18,20 +18,20 @@ test("Get attributes by key", async () => {
   expect(result).toHaveLength(2);
   expect(result).toEqual(
     expect.arrayContaining([
-      expect.objectContaining({ id: facet1!.id }),
-      expect.objectContaining({ id: facet2!.id }),
+      expect.objectContaining({ id: attr1!.id }),
+      expect.objectContaining({ id: attr2!.id }),
     ]),
   );
 });
 
-test("Add a facet", async () => {
+test("Add an attribute", async () => {
   const key = faker.string.alphanumeric(12);
   const value = faker.string.alphanumeric(8);
   const type = "text";
 
-  const facet = await store.attributes.addAttribute({ key, value, type });
+  const attr = await store.attributes.addAttribute({ key, value, type });
 
-  expect(facet).toMatchObject({
+  expect(attr).toMatchObject({
     id: expect.any(String),
     key,
     value,
@@ -40,7 +40,7 @@ test("Add a facet", async () => {
   });
 });
 
-test("Add a facet with a duplicate key and value", async () => {
+test("Add an attribute with a duplicate key and value", async () => {
   const key = faker.string.alphanumeric(12);
   const value = faker.string.alphanumeric(8);
 
@@ -54,27 +54,27 @@ test("Add a facet with a duplicate key and value", async () => {
   });
 });
 
-test("Remove a facet", async () => {
-  const facet = await store.attributes.addAttribute({
+test("Remove an attribute", async () => {
+  const attr = await store.attributes.addAttribute({
     key: faker.string.alphanumeric(12),
     value: faker.string.alphanumeric(8),
     type: "text",
   });
 
-  expect(facet).toBeDefined();
+  expect(attr).toBeDefined();
 
-  await store.attributes.removeAttribute(facet!.id);
+  await store.attributes.removeAttribute(attr!.id);
 
   const dbAttribute = await store.db.query.attributes.findFirst({
     where: {
-      id: facet!.id,
+      id: attr!.id,
     },
   });
 
   expect(dbAttribute).toBeUndefined();
 });
 
-test("Remove a facet that does not exist", async () => {
+test("Remove an attribute that does not exist", async () => {
   const result = store.attributes.removeAttribute(faker.string.uuid());
 
   expect(result).rejects.toThrow(OperationalError);
