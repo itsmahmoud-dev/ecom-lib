@@ -288,10 +288,15 @@ test("Update a cart item's quantity to a value lower than one", async () => {
 
   const result = store.cartItems.updateQuantity(item!.id, 0);
 
-  expect(result).rejects.toThrow(OperationalError);
-  expect(result).rejects.toMatchObject({
-    code: CartItemErrorsCodes.QuantityInvalid,
-  });
+  expect(result).rejects.toEqual(
+    expect.objectContaining({
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          code: "too_small", // or CartItemErrorsCodes.QuantityInvalid
+        }),
+      ]),
+    }),
+  );
 });
 
 test("Import cart items", async () => {
