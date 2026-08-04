@@ -186,7 +186,7 @@ export function handleError(e: unknown): never {
       e.cause.constraint ===
         "productsToAttributes_attribute_id_attributes_id_fkey" ||
       e.cause.constraint ===
-        "productVariantsToAttributes_attribute_id_attribute_id_fkey" ||
+        "productVariantsToAttributes_attribute_id_attributes_id_fkey" ||
       e.cause.constraint === "imagesToAttributes_attribute_id_attributes_id_fkey"
     ) {
       throw new OperationalError({
