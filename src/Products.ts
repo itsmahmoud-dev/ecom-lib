@@ -1,5 +1,4 @@
 import sharp from "sharp";
-import { and, eq, inArray, sql } from "drizzle-orm";
 
 import {
   images,
@@ -10,30 +9,13 @@ import {
   productVariantsToAttribute,
   productVariantsToImages,
 } from "./db/schema";
-import { handleError, ProductErrorCodes, OperationalError } from "./lib/errors";
+import { handleError } from "./lib/errors";
 
-import { diffArrays } from "./lib/array";
 import type { Store } from "./Store";
+import type z from "zod";
+import { addProductSchema } from "./types/products.type";
 
-type InsertProductParams = {
-  p: {
-    name: string;
-    barcode?: string | null;
-    active: boolean;
-    description: string;
-    attributes: string[];
-  };
-  v: {
-    price: number;
-    discount?: number;
-    quantity: number;
-    attributes: string[];
-  }[];
-  i: {
-    file: File;
-    attributes: string[];
-  }[];
-};
+type InsertProductParams = z.infer<typeof addProductSchema>;
 
 type UpdateProductParams = {
   p: {
@@ -67,110 +49,100 @@ export class Products {
   }
 
   async addProduct(params: InsertProductParams) {
-    const imageBuffersToSave: { buffer: Buffer; filename: string }[] = [];
     try {
+      const { product, variants, ...data } = addProductSchema.parse(params);
+
+      // processing product
+      const productId = crypto.randomUUID();
+      const productAttributesLinks = product.attributes.map((id) => ({
+        productId: productId,
+        attributeId: id,
+      }));
+
+      // processing variants
+      const variantsWithIds = variants.map((el) => ({
+        ...el,
+        id: crypto.randomUUID(),
+      }));
+
+      const variantAttributesLinks = variantsWithIds.flatMap((v) =>
+        v.attributes.map((attr) => ({
+          productVariantId: v.id,
+          attributeId: attr,
+        })),
+      );
+
+      // processing images
+      const imagesWithids = await Promise.all(
+        data.images.map(async (el, i) => ({
+          id: crypto.randomUUID(),
+          buffer: await sharp(await el.file.arrayBuffer())
+            .webp({ quality: 80 })
+            .toBuffer(),
+          path: `/images/products/${productId}-${i}-${Date.now()}.webp`,
+          file: el.file,
+          attributes: el.attributes,
+        })),
+      );
+
+      const imageAttributesLinks = imagesWithids.flatMap((el) =>
+        el.attributes.map((attr) => ({ imageId: el.id, attributeId: attr })),
+      );
+
+      const variantImageLinks = imagesWithids.flatMap((image) => {
+        const variantsWithSameAttributesIds = variantsWithIds.filter((v) =>
+          image.attributes.every((a) => v.attributes.includes(a)),
+        );
+
+        return variantsWithSameAttributesIds.map((variant) => ({
+          imageId: image.id,
+          productVariantId: variant.id,
+        }));
+      });
+
       await this.store.db.transaction(async (tx) => {
-        // inserting the product
-        const [product] = await tx
-          .insert(products)
-          .values({
-            name: params.p.name,
-            barcode: params.p.barcode,
-            active: params.p.active,
-            description: params.p.description,
-          })
-          .returning();
+        // inserting product
+        await tx.insert(products).values({
+          id: productId,
+          name: product.name,
+          barcode: product.barcode,
+          active: product.active,
+          description: product.description,
+        });
 
-        if (!product) {
-          throw new Error("Error inserting a product");
-        }
+        // inserting product attributes
+        await tx.insert(productsToAttributes).values(productAttributesLinks);
 
-        // assigning attributes for the product
-        await tx.insert(productsToAttributes).values(
-          params.p.attributes.map((id) => ({
-            productId: product.id,
-            attributeId: id,
+        // inserting product variants
+        await tx.insert(productVariants).values(
+          variantsWithIds.map((el) => ({
+            id: el.id,
+            price: el.price,
+            quantity: el.quantity,
+            productId,
+            discount: el.discount,
           })),
         );
 
-        for (const el of params.v) {
-          // inserting the variant
-          const [variant] = await tx
-            .insert(productVariants)
-            .values({
-              productId: product.id,
-              price: el.price,
-              discount: el.discount,
-              quantity: el.quantity,
-            })
-            .returning();
+        // inserting variant attributes
+        await tx
+          .insert(productVariantsToAttribute)
+          .values(variantAttributesLinks);
 
-          if (!variant) {
-            throw new Error("Error inserting a product variant");
-          }
+        // inserting images
+        await tx
+          .insert(images)
+          .values(imagesWithids.map((el) => ({ id: el.id, path: el.path })));
 
-          // assigning attributes for the variant
-          await tx.insert(productVariantsToAttribute).values(
-            el.attributes.map((id) => ({
-              productVariantId: variant.id,
-              attributeId: id,
-            })),
-          );
-        }
+        // inserting image attributes
+        await tx.insert(imagesToAttributes).values(imageAttributesLinks);
 
-        const allVariantIds = await tx.query.productVariants.findMany({
-          columns: { id: true },
-          with: { attributes: { columns: { id: true } } },
-          where: { productId: product.id },
-        });
-
-        // processing images and inserting them
-        for (const [i, el] of params.i.entries()) {
-          const filename = `/images/products/${product.id}-${i}-${Date.now()}.webp`;
-
-          const [image] = await tx
-            .insert(images)
-            .values({ path: filename })
-            .returning();
-
-          if (!image) {
-            throw new Error("Error inserting a variant image");
-          }
-
-          imageBuffersToSave.push({
-            buffer: await sharp(await el.file.arrayBuffer())
-              .webp({ quality: 80 })
-              .toBuffer(),
-            filename,
-          });
-
-          // assgining significant facets to images
-          await tx
-            .insert(imagesToAttributes)
-            .values(
-              el.attributes.map((id) => ({
-                imageId: image.id,
-                attributeId: id,
-              })),
-            );
-
-          const variantsWithSameAttributesIds = allVariantIds.filter((v) =>
-            v.attributes.some((a) => el.attributes.includes(a.id)),
-          );
-
-          if (variantsWithSameAttributesIds.length) {
-            await tx.insert(productVariantsToImages).values(
-              variantsWithSameAttributesIds.map((variant) => ({
-                imageId: image.id,
-                productVariantId: variant.id,
-              })),
-            );
-          }
-        }
+        // inserting image variant links
+        await tx.insert(productVariantsToImages).values(variantImageLinks);
       });
 
-      for (const { buffer, filename } of imageBuffersToSave) {
-        await Bun.write(`${this.store.dataPath}${filename}`, buffer);
+      for (const { buffer, path } of imagesWithids) {
+        await Bun.write(`${this.store.dataPath}${path}`, buffer);
       }
     } catch (e) {
       handleError(e);
@@ -179,295 +151,10 @@ export class Products {
 
   async updateProduct(params: UpdateProductParams) {
     try {
-      const imageBuffersToSave: { filename: string; buffer: Buffer }[] = [];
-
-      await this.store.db.transaction(async (tx) => {
-        // looking for the product
-        const product = await tx.query.products.findFirst({
-          where: { id: params.p.id },
-          with: {
-            attributes: true,
-            variants: {
-              with: {
-                attributes: true,
-                images: {
-                  with: {
-                    attributes: true,
-                  },
-                },
-              },
-            },
-          },
-        });
-
-        // if not found throw
-        if (!product) {
-          throw new OperationalError({
-            code: ProductErrorCodes.ProductNotFound,
-            severity: "warning",
-            userMessage: "Product was not found",
-            logMessage: `Updating a product failed because it does not exist`,
-            key: "id",
-            value: params.p.id,
-          });
-        }
-
-        if (product.version !== params.p.version) {
-          throw new OperationalError({
-            code: ProductErrorCodes.VersionMismatch,
-            severity: "info",
-            userMessage: "Please refresh and update again",
-            logMessage: "Updating a product failed because of version mismatch",
-            cause:
-              "Product was updated by someone else after it loaded into the update form",
-          });
-        }
-
-        // if found edit its fields
-        const { attributes, id, ...productFieldsToUpdate } = params.p;
-
-        // ---------------------------- editing product ----------------------------
-        if (Object.keys(productFieldsToUpdate).length) {
-          await tx
-            .update(products)
-            .set({
-              ...productFieldsToUpdate,
-              version: sql`(${product.version} + 1) % 1000`,
-            })
-            .where(eq(products.id, id));
-        }
-
-        // if there's attributes, then there's changed attributes
-        if (attributes) {
-          const oldAttributesIds = product.attributes.map((el) => el.id);
-
-          const { added, removed } = diffArrays(oldAttributesIds, attributes);
-
-          if (added.length) {
-            await tx
-              .insert(productsToAttributes)
-              .values(
-                added.map((el) => ({ attributeId: el, productId: product.id })),
-              );
-          }
-
-          if (removed.length) {
-            await tx
-              .delete(productsToAttributes)
-              .where(
-                and(
-                  eq(productsToAttributes.productId, product.id),
-                  inArray(productsToAttributes.attributeId, removed),
-                ),
-              );
-          }
-        }
-
-        // ---------------------------- editing variants ----------------------------
-        if (params.v?.length) {
-          for (const { id, attributes, discount, price, quantity } of params.v) {
-            // update existing variant
-            if (id) {
-              const orignalVariant = product.variants.find((el) => el.id === id);
-
-              if (!orignalVariant) {
-                throw new OperationalError({
-                  code: ProductErrorCodes.VariantNotFound,
-                  severity: "warning",
-                  userMessage: "One of the variants was not found",
-                  logMessage: `Updating a variant failed because it does not exist`,
-                  key: "id",
-                  value: id,
-                });
-              }
-
-              if (discount || price) {
-                await tx
-                  .update(productVariants)
-                  .set({ discount, price, quantity })
-                  .where(eq(productVariants.id, id));
-              }
-
-              if (attributes) {
-                const originalAttributes = orignalVariant.attributes.map(
-                  (el) => el.id,
-                );
-
-                const { added, removed } = diffArrays(
-                  originalAttributes,
-                  attributes,
-                );
-
-                if (added.length) {
-                  await tx.insert(productVariantsToAttribute).values(
-                    added.map((el) => ({
-                      productVariantId: id,
-                      attributeId: el,
-                    })),
-                  );
-                }
-
-                if (removed.length) {
-                  await tx
-                    .delete(productVariantsToAttribute)
-                    .where(
-                      and(
-                        eq(productVariantsToAttribute.productVariantId, id),
-                        inArray(productVariantsToAttribute.attributeId, removed),
-                      ),
-                    );
-                }
-              }
-            }
-
-            // insert new variant
-            else if (!id && price && quantity && attributes?.length) {
-              const [newVariant] = await tx
-                .insert(productVariants)
-                .values({
-                  productId: product.id,
-                  price: price,
-                  discount: discount,
-                  quantity,
-                })
-                .returning();
-
-              if (!newVariant) {
-                throw new Error("Error inserting a variant");
-              }
-
-              // assigning attributes for the variant
-              await tx.insert(productVariantsToAttribute).values(
-                attributes.map((attributeId) => ({
-                  productVariantId: newVariant.id,
-                  attributeId,
-                })),
-              );
-            }
-          }
-        }
-
-        // ---------------------------- editing images ----------------------------
-        if (params.i?.length) {
-          const variants = await tx.query.productVariants.findMany({
-            where: { productId: product.id },
-            with: { attributes: true },
-          });
-
-          for (const [i, { file, attributes, id }] of params.i.entries()) {
-            // updating existing image
-            if (id) {
-              const originalImage = product.variants
-                .flatMap((el) => el.images)
-                .find((img) => img.id === id);
-
-              if (!originalImage) {
-                throw new OperationalError({
-                  code: ProductErrorCodes.ImageNotFound,
-                  severity: "warning",
-                  userMessage: "One of the images was not found",
-                  logMessage: "Updating image failed because it does not exist",
-                  key: "id",
-                  value: id,
-                });
-              }
-
-              const originalAttributes = originalImage.attributes.map(
-                (el) => el.id,
-              );
-
-              const { added, removed } = diffArrays(
-                originalAttributes,
-                attributes,
-              );
-
-              if (added.length) {
-                await tx.insert(imagesToAttributes).values(
-                  added.map((el) => ({
-                    imageId: id,
-                    attributeId: el,
-                  })),
-                );
-              }
-
-              if (removed.length) {
-                await tx
-                  .delete(imagesToAttributes)
-                  .where(
-                    and(
-                      eq(imagesToAttributes.imageId, id),
-                      inArray(imagesToAttributes.attributeId, removed),
-                    ),
-                  );
-              }
-            }
-
-            // inserting new image
-            else if (file) {
-              const filename = `/images/products/${product.id}-${i}-${Date.now()}.webp`;
-
-              const [newImage] = await tx
-                .insert(images)
-                .values({ path: filename })
-                .returning();
-
-              if (!newImage) {
-                throw new Error("Error inserting a product image");
-              }
-
-              imageBuffersToSave.push({
-                buffer: await sharp(await file.arrayBuffer())
-                  .webp({ quality: 80 })
-                  .toBuffer(),
-                filename,
-              });
-
-              await tx.insert(imagesToAttributes).values(
-                attributes.map((el) => ({
-                  attributeId: el,
-                  imageId: newImage.id,
-                })),
-              );
-
-              const variantsWithSameAttributes = variants.filter((v) =>
-                v.attributes.some((a) => attributes.includes(a.id)),
-              );
-
-              if (variantsWithSameAttributes.length) {
-                await tx.insert(productVariantsToImages).values(
-                  variantsWithSameAttributes.map((variant) => ({
-                    imageId: newImage.id,
-                    productVariantId: variant.id,
-                  })),
-                );
-              }
-            }
-          }
-        }
-      });
-      for (const { buffer, filename } of imageBuffersToSave) {
-        await Bun.write(`${this.store.dataPath}${filename}`, buffer);
-      }
     } catch (e) {
       handleError(e);
     }
   }
 
-  async deleteProduct(id: string) {
-    const [product] = await this.store.db
-      .delete(products)
-      .where(eq(products.id, id))
-      .returning({ id: products.id });
-
-    if (!product) {
-      throw new OperationalError({
-        code: ProductErrorCodes.ProductNotFound,
-        severity: "warning",
-        userMessage: "Product was not found",
-        logMessage: "Deleting product failed because it does not exist",
-        key: "id",
-        value: id,
-      });
-    }
-  }
+  async deleteProduct(id: string) {}
 }
