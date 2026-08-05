@@ -18,6 +18,11 @@ describe("store.products.addProduct", () => {
     test("Add a product, with variants and images", async () => {
       const whiteColorAttr = await makeAttribute("color", "white");
       const blackColorAttr = await makeAttribute("color", "black");
+      const techCategoryAttr = await makeAttribute("category", "tech");
+      const storage128Attr = await makeAttribute("storage", "128");
+      const storage256Attr = await makeAttribute("storage", "256");
+      const ram6Attr = await makeAttribute("ram", "6");
+      const ram8Attr = await makeAttribute("ram", "8");
       const productName = faker.commerce.productName();
 
       const data = {
@@ -26,28 +31,28 @@ describe("store.products.addProduct", () => {
           active: true,
           description: faker.commerce.productDescription(),
           barcode: faker.string.numeric(12),
-          attributes: [(await makeAttribute("category", "tech")).id],
+          attributes: { [techCategoryAttr.key]: techCategoryAttr.id },
         },
         variants: [
           {
             price: 1100,
             quantity: 12,
             discount: 0,
-            attributes: [
-              (await makeAttribute("storage", "128")).id,
-              (await makeAttribute("ram", "6")).id,
-              blackColorAttr.id,
-            ],
+            attributes: {
+              [blackColorAttr.key]: blackColorAttr.id,
+              [storage128Attr.key]: storage128Attr.id,
+              [ram6Attr.key]: ram6Attr.id,
+            },
           },
           {
             price: 1200,
             quantity: 10,
             discount: 0,
-            attributes: [
-              (await makeAttribute("storage", "256")).id,
-              (await makeAttribute("ram", "8")).id,
-              whiteColorAttr.id,
-            ],
+            attributes: {
+              [storage256Attr.key]: storage256Attr.id,
+              [ram8Attr.key]: ram8Attr.id,
+              [whiteColorAttr.key]: whiteColorAttr.id,
+            },
           },
         ],
         images: [
@@ -55,25 +60,25 @@ describe("store.products.addProduct", () => {
             file: await getFile(
               join(import.meta.dirname, "./S26-ultra-black-1.webp"),
             ),
-            attributes: [blackColorAttr.id],
+            attributes: { [blackColorAttr.key]: blackColorAttr.id },
           },
           {
             file: await getFile(
               join(import.meta.dirname, "./S26-ultra-black-2.webp"),
             ),
-            attributes: [blackColorAttr.id],
+            attributes: { [blackColorAttr.key]: blackColorAttr.id },
           },
           {
             file: await getFile(
               join(import.meta.dirname, "./S26-ultra-white-1.webp"),
             ),
-            attributes: [whiteColorAttr.id],
+            attributes: { [whiteColorAttr.key]: whiteColorAttr.id },
           },
           {
             file: await getFile(
               join(import.meta.dirname, "./S26-ultra-white-2.webp"),
             ),
-            attributes: [whiteColorAttr.id],
+            attributes: { [whiteColorAttr.key]: whiteColorAttr.id },
           },
         ],
       };
@@ -122,7 +127,7 @@ describe("store.products.addProduct", () => {
         barcode: data.product.barcode,
       });
       expect(dbProduct!.attributes.map((el) => el.id)).toStrictEqual(
-        data.product.attributes,
+        Object.values(data.product.attributes),
       );
 
       expect(dbProduct!.variants).toBeArrayOfSize(2);
@@ -181,17 +186,18 @@ describe("store.products.addProduct", () => {
           description: faker.commerce.productDescription(),
           active: true,
           barcode,
-          attributes: [
-            (await makeAttribute(faker.string.alpha(5), faker.string.alpha(7)))
-              .id,
-          ],
+          attributes: {
+            [faker.string.alpha(5)]: (
+              await makeAttribute(faker.string.alpha(5), faker.string.alpha(7))
+            ).id,
+          },
         },
         variants: [
           {
             price: 1000,
             quantity: 10,
             discount: 0,
-            attributes: [variantImageAttr.id],
+            attributes: { [variantImageAttr.key]: variantImageAttr.id },
           },
         ],
         images: [
@@ -199,7 +205,7 @@ describe("store.products.addProduct", () => {
             file: await getFile(
               join(import.meta.dirname, "./S26-ultra-black-1.webp"),
             ),
-            attributes: [variantImageAttr.id],
+            attributes: { [variantImageAttr.key]: variantImageAttr.id },
           },
         ],
       });
@@ -221,14 +227,14 @@ describe("store.products.addProduct", () => {
           description: faker.commerce.productDescription(),
           active: true,
           barcode: faker.string.numeric(12),
-          attributes: [faker.string.uuid()],
+          attributes: { [faker.string.alpha(5)]: faker.string.uuid() },
         },
         variants: [
           {
             price: 1000,
             quantity: 10,
             discount: 0,
-            attributes: [variantImageAttr.id],
+            attributes: { [variantImageAttr.key]: variantImageAttr.id },
           },
         ],
         images: [
@@ -236,7 +242,7 @@ describe("store.products.addProduct", () => {
             file: await getFile(
               join(import.meta.dirname, "./S26-ultra-black-1.webp"),
             ),
-            attributes: [variantImageAttr.id],
+            attributes: { [variantImageAttr.key]: variantImageAttr.id },
           },
         ],
       });
@@ -265,14 +271,14 @@ describe("store.products.addProduct", () => {
           description: faker.commerce.productDescription(),
           active: true,
           barcode: faker.string.numeric(12),
-          attributes: [productAttr.id],
+          attributes: { [productAttr.key]: productAttr.id },
         },
         variants: [
           {
             price: 1000,
             quantity: 10,
             discount: 0,
-            attributes: [varinatAttr],
+            attributes: { [faker.string.alpha(5)]: varinatAttr },
           },
         ],
         images: [
@@ -280,7 +286,7 @@ describe("store.products.addProduct", () => {
             file: await getFile(
               join(import.meta.dirname, "./S26-ultra-black-1.webp"),
             ),
-            attributes: [varinatAttr],
+            attributes: { [faker.string.alpha(5)]: varinatAttr },
           },
         ],
       });
@@ -303,20 +309,20 @@ describe("store.products.addProduct", () => {
           description: faker.commerce.productDescription(),
           active: true,
           barcode: faker.string.numeric(12),
-          attributes: [attr1.id],
+          attributes: { [attr1.key]: attr1.id },
         },
         variants: [
           {
             price: 1000,
             quantity: 10,
             discount: 0,
-            attributes: [attr2.id],
+            attributes: { [attr2.key]: attr2.id },
           },
           {
             price: 1000,
             quantity: 10,
             discount: 0,
-            attributes: [attr3.id],
+            attributes: { [attr3.key]: attr3.id },
           },
         ],
         images: [
@@ -324,7 +330,7 @@ describe("store.products.addProduct", () => {
             file: await getFile(
               join(import.meta.dirname, "./S26-ultra-black-1.webp"),
             ),
-            attributes: [attr2.id],
+            attributes: { [attr2.key]: attr2.id },
           },
         ],
       });
@@ -340,7 +346,6 @@ describe("store.products.addProduct", () => {
       );
     });
 
-    // validate every image has at least one variant
     test("Image without a variant throws", async () => {
       const [attr1, attr2] = [
         await makeAttribute(faker.string.alpha(5), faker.string.alpha(7)),
@@ -353,14 +358,14 @@ describe("store.products.addProduct", () => {
           description: faker.commerce.productDescription(),
           active: true,
           barcode: faker.string.numeric(12),
-          attributes: [attr1.id],
+          attributes: { [attr1.key]: attr1.id },
         },
         variants: [
           {
             price: 1000,
             quantity: 10,
             discount: 0,
-            attributes: [attr2.id],
+            attributes: { [attr2.key]: attr2.id },
           },
         ],
         images: [
@@ -368,13 +373,13 @@ describe("store.products.addProduct", () => {
             file: await getFile(
               join(import.meta.dirname, "./S26-ultra-black-1.webp"),
             ),
-            attributes: [attr2.id],
+            attributes: { [attr2.key]: attr2.id },
           },
           {
             file: await getFile(
               join(import.meta.dirname, "./S26-ultra-black-1.webp"),
             ),
-            attributes: [faker.string.uuid()],
+            attributes: { [faker.string.alpha(5)]: faker.string.uuid() },
           },
         ],
       });

@@ -7,7 +7,7 @@ export const addProductSchema = z
       barcode: z.string().nullish(),
       active: z.boolean(),
       description: z.string(),
-      attributes: z.array(z.uuid()).min(1),
+      attributes: z.record(z.string(), z.string()),
     }),
     variants: z
       .array(
@@ -15,7 +15,7 @@ export const addProductSchema = z
           price: z.number().positive(),
           discount: z.number().optional(),
           quantity: z.int().nonnegative(),
-          attributes: z.array(z.uuid()).min(1),
+          attributes: z.record(z.string(), z.string()),
         }),
       )
       .min(1),
@@ -23,7 +23,7 @@ export const addProductSchema = z
       .array(
         z.strictObject({
           file: z.file().mime(["image/png", "image/jpeg", "image/webp"]),
-          attributes: z.array(z.uuid()).min(1),
+          attributes: z.record(z.string(), z.string()),
         }),
       )
       .min(1),
@@ -33,7 +33,9 @@ export const addProductSchema = z
     // making sure that each variant has at least one image
     for (const variant of data.variants) {
       const imageWithSubsetAttrsExists = data.images.filter((image) =>
-        image.attributes.every((attr) => variant.attributes.includes(attr)),
+        Object.values(image.attributes).every((attr) =>
+          Object.values(variant.attributes).includes(attr),
+        ),
       );
 
       if (!imageWithSubsetAttrsExists.length) {

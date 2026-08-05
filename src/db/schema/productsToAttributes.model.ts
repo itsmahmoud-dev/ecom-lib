@@ -13,6 +13,7 @@ export const productsToAttributes = snakeCase.table(
       .uuid()
       .notNull()
       .references(() => attributes.id, { onDelete: "cascade" }),
+    key: t.text().notNull(),
   }),
   (t) => [primaryKey({ columns: [t.productId, t.attributeId] })],
 );

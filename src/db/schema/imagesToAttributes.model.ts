@@ -13,6 +13,7 @@ export const imagesToAttributes = snakeCase.table(
       .uuid()
       .notNull()
       .references(() => attributes.id, { onDelete: "cascade" }),
+    key: t.text().notNull(),
   }),
   (t) => [primaryKey({ columns: [t.imageId, t.attributeId] })],
 );

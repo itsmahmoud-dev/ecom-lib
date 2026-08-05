@@ -10,10 +10,10 @@ import {
   productVariantsToImages,
 } from "./db/schema";
 import { handleError } from "./lib/errors";
+import { addProductSchema } from "./types/products.type";
 
 import type { Store } from "./Store";
 import type z from "zod";
-import { addProductSchema } from "./types/products.type";
 
 type InsertProductParams = z.infer<typeof addProductSchema>;
 
@@ -54,10 +54,13 @@ export class Products {
 
       // processing product
       const productId = crypto.randomUUID();
-      const productAttributesLinks = product.attributes.map((id) => ({
-        productId: productId,
-        attributeId: id,
-      }));
+      const productAttributesLinks = Object.entries(product.attributes).map(
+        ([key, id]) => ({
+          productId: productId,
+          key,
+          attributeId: id,
+        }),
+      );
 
       // processing variants
       const variantsWithIds = variants.map((el) => ({
@@ -66,9 +69,10 @@ export class Products {
       }));
 
       const variantAttributesLinks = variantsWithIds.flatMap((v) =>
-        v.attributes.map((attr) => ({
+        Object.entries(v.attributes).map(([key, id]) => ({
           productVariantId: v.id,
-          attributeId: attr,
+          key,
+          attributeId: id,
         })),
       );
 
@@ -86,12 +90,18 @@ export class Products {
       );
 
       const imageAttributesLinks = imagesWithids.flatMap((el) =>
-        el.attributes.map((attr) => ({ imageId: el.id, attributeId: attr })),
+        Object.entries(el.attributes).map(([key, id]) => ({
+          imageId: el.id,
+          key,
+          attributeId: id,
+        })),
       );
 
       const variantImageLinks = imagesWithids.flatMap((image) => {
         const variantsWithSameAttributesIds = variantsWithIds.filter((v) =>
-          image.attributes.every((a) => v.attributes.includes(a)),
+          Object.values(image.attributes).every((a) =>
+            Object.values(v.attributes).includes(a),
+          ),
         );
 
         return variantsWithSameAttributesIds.map((variant) => ({
