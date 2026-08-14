@@ -627,7 +627,7 @@ export class Products {
 
       const imagesToDelete = product.variants.flatMap((el) => el.images);
 
-      this.store.db.transaction(async (tx) => {
+      await this.store.db.transaction(async (tx) => {
         await tx.delete(products).where(eq(products.id, id));
 
         await tx.delete(images).where(
