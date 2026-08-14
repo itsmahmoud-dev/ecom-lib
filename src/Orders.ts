@@ -1,10 +1,11 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray, sql, SQL } from "drizzle-orm";
 import { orderItems } from "./db/schema";
-import { orders } from "./db/schema/order.model";
+import { orders, productVariants } from "./db/schema";
 import {
   handleError,
   OperationalError,
   OrderErrorCodes,
+  ProductErrorCodes,
   UserErrorCodes,
 } from "./lib/errors";
 import { Store } from "./Store";
@@ -16,7 +17,7 @@ export class Order {
     this.store = store;
   }
 
-  async getOrderByUser(
+  async getOrdersByUser(
     userId: string,
     filters: {
       status?: (typeof orders.status.enumValues)[number];
@@ -29,9 +30,6 @@ export class Order {
 
   async placeOrder(userId: string, addressId: string) {
     try {
-      let order: typeof orders.$inferSelect | undefined;
-      let items;
-
       const user = await this.store.db.query.users.findFirst({
         where: { id: userId },
       });
@@ -50,7 +48,15 @@ export class Order {
       const cartItems = await this.store.db.query.cartItems.findMany({
         where: { userId },
         with: {
-          variant: true,
+          variant: {
+            with: {
+              product: {
+                columns: {
+                  name: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -63,31 +69,40 @@ export class Order {
         });
       }
 
-      const productsVarinats =
-        await this.store.db.query.productVariants.findMany({
-          where: { id: { in: cartItems.map((el) => el.variantId) } },
-          with: { product: { columns: { name: true } } },
-        });
+      const order = await this.store.db.transaction(async (tx) => {
+        const variantQuantityUpdateSQLChunks: SQL[] = [];
+        const variantQuantityUpdateIds: string[] = [];
 
-      // make sure the quantities are enough
-      for (const item of cartItems) {
-        const variant = productsVarinats.find((el) => el.id === item.variantId);
+        // make sure the quantities are enough
+        for (const item of cartItems) {
+          const variant = item.variant;
 
-        if (item.quantity > variant!.quantity) {
-          throw new OperationalError({
-            code: OrderErrorCodes.QuantityNotEnough,
-            severity: "info",
-            logMessage:
-              "Placing an order failed because one of the items' quantity was more than the available stock",
-            userMessage: `Quantity limits apply to ${variant?.product.name}. You may purchase up to ${variant?.quantity} of this product`,
-            key: ["id", "quantity"],
-            value: [item.variantId, item.quantity.toString()],
-          });
+          if (item.quantity > variant.quantity) {
+            throw new OperationalError({
+              code: OrderErrorCodes.QuantityNotEnough,
+              severity: "info",
+              logMessage:
+                "Placing an order failed because one of the items' quantity was more than the available stock",
+              userMessage: `Quantity limits apply to ${variant?.product.name}. You may purchase up to ${variant?.quantity} of this product`,
+              key: ["id", "quantity"],
+              value: [item.variantId, item.quantity.toString()],
+            });
+          }
+
+          variantQuantityUpdateSQLChunks.push(
+            sql`WHEN ${productVariants.id} = ${variant.id} THEN ${productVariants.quantity} - ${item.quantity}`,
+          );
+          variantQuantityUpdateIds.push(variant.id);
         }
-      }
 
-      await this.store.db.transaction(async (tx) => {
-        [order] = await tx
+        await tx
+          .update(productVariants)
+          .set({
+            quantity: sql`(CASE ${sql.join(variantQuantityUpdateSQLChunks, sql` `)} ELSE ${productVariants.quantity} END)`,
+          })
+          .where(inArray(productVariants.id, variantQuantityUpdateIds));
+
+        const [order] = await tx
           .insert(orders)
           .values({ userId, addressId })
           .returning();
@@ -96,7 +111,7 @@ export class Order {
           throw new Error("Error inserting an order");
         }
 
-        items = await tx
+        const items = await tx
           .insert(orderItems)
           .values(
             cartItems.map((el) => ({
@@ -112,12 +127,11 @@ export class Order {
         if (items.length !== cartItems.length) {
           throw new Error("Error inserting cart items");
         }
+
+        return { ...order, items };
       });
 
-      return {
-        ...order,
-        items,
-      };
+      return order;
     } catch (e) {
       handleError(e);
     }
