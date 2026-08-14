@@ -590,8 +590,12 @@ export class Products {
         await Bun.write(`${this.store.dataPath}${path}`, buffer);
       }
 
-      for (const path of imageFilesToDelete) {
-        await Bun.file(`${this.store.dataPath}${path}`).delete();
+      try {
+        for (const path of imageFilesToDelete) {
+          await Bun.file(`${this.store.dataPath}${path}`).delete();
+        }
+      } catch (e) {
+        console.log(e);
       }
     } catch (e) {
       handleError(e);
