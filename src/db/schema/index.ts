@@ -5,7 +5,7 @@ export * from "./attributes.model";
 export * from "./images.model";
 export * from "./imagesToAttributes.model";
 export * from "./inCollection.model";
-export * from "./order.model";
+export * from "./orders.model";
 export * from "./orderItems.model";
 export * from "./productVariants.model";
 export * from "./productVariantsToAttributes.model";

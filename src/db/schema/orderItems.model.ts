@@ -1,5 +1,5 @@
 import { snakeCase } from "drizzle-orm/pg-core";
-import { orders } from "./order.model";
+import { orders } from "./orders.model";
 import { products } from "./products.model";
 import { productVariants } from "./productVariants.model";
 
