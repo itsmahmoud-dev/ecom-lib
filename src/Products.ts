@@ -598,5 +598,51 @@ export class Products {
     }
   }
 
-  async deleteProduct(id: string) {}
+  async deleteProduct(id: string) {
+    try {
+      const product = await this.store.db.query.products.findFirst({
+        where: { id },
+        with: {
+          variants: {
+            columns: {},
+            with: {
+              images: true,
+            },
+          },
+        },
+      });
+
+      if (!product) {
+        throw new OperationalError({
+          code: ProductErrorCodes.ProductNotFound,
+          severity: "warning",
+          logMessage: "Deleting a product failed because it does not exist",
+          userMessage: "Product was not found",
+        });
+      }
+
+      const imagesToDelete = product.variants.flatMap((el) => el.images);
+
+      this.store.db.transaction(async (tx) => {
+        await tx.delete(products).where(eq(products.id, id));
+
+        await tx.delete(images).where(
+          inArray(
+            images.id,
+            imagesToDelete.map((el) => el.id),
+          ),
+        );
+      });
+
+      try {
+        for (const img of imagesToDelete) {
+          await Bun.file(`${this.store.dataPath}/${img.path}`).delete();
+        }
+      } catch (e) {
+        console.log(e);
+      }
+    } catch (e) {
+      handleError(e);
+    }
+  }
 }
