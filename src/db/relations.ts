@@ -114,4 +114,11 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.products.id.through(r.inCollection.productId),
     }),
   },
+  orders: {
+    // one order can have multiple items
+    items: r.many.orderItems({
+      from: r.orders.id,
+      to: r.orderItems.id,
+    }),
+  },
 }));
