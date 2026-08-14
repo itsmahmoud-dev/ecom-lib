@@ -81,56 +81,6 @@ export class CartItems {
     }
   }
 
-  async incrementQuantity(id: string) {
-    try {
-      const [item] = await this.store.db
-        .update(cartItems)
-        .set({ quantity: sql`${cartItems.quantity} + 1` })
-        .where(eq(cartItems.id, id))
-        .returning();
-
-      if (!item) {
-        throw new OperationalError({
-          code: CartItemErrorsCodes.CartItemNotFound,
-          severity: "warning",
-          userMessage: "Bag item was not found",
-          logMessage: `Incrementing cart item quantity failed because it does not exist`,
-          key: "id",
-          value: id,
-        });
-      }
-
-      return item;
-    } catch (e) {
-      handleError(e);
-    }
-  }
-
-  async decrementQuantity(id: string) {
-    try {
-      const [item] = await this.store.db
-        .update(cartItems)
-        .set({ quantity: sql`${cartItems.quantity} - 1` })
-        .where(eq(cartItems.id, id))
-        .returning();
-
-      if (!item) {
-        throw new OperationalError({
-          code: CartItemErrorsCodes.CartItemNotFound,
-          severity: "warning",
-          userMessage: "Bag item was not found",
-          logMessage: `Decrementing cart item quantity failed because it does not exist`,
-          key: "id",
-          value: id,
-        });
-      }
-
-      return item;
-    } catch (e) {
-      handleError(e);
-    }
-  }
-
   async updateQuantity(
     id: string,
     quantity: z.infer<typeof cartItemQuantityschema>,
@@ -138,22 +88,41 @@ export class CartItems {
     try {
       const data = cartItemQuantityschema.parse(quantity);
 
-      const [item] = await this.store.db
-        .update(cartItems)
-        .set({ quantity: data })
-        .where(eq(cartItems.id, id))
-        .returning();
-
-      if (!item) {
-        throw new OperationalError({
-          code: CartItemErrorsCodes.CartItemNotFound,
-          severity: "warning",
-          userMessage: "Bag item was not found",
-          logMessage: `Updating cart item quantity failed because it does not exist`,
-          key: "id",
-          value: id,
+      const item = await this.store.db.transaction(async (tx) => {
+        const item = await tx.query.cartItems.findFirst({
+          where: { id },
+          with: { variant: true },
         });
-      }
+
+        if (!item) {
+          throw new OperationalError({
+            code: CartItemErrorsCodes.CartItemNotFound,
+            severity: "warning",
+            userMessage: "Cart item was not found",
+            logMessage: `Updating cart item quantity failed because it does not exist`,
+            key: "id",
+            value: id,
+          });
+        }
+
+        if (item.quantity + data > item.variant.quantity) {
+          throw new OperationalError({
+            code: CartItemErrorsCodes.CartItemNotFound,
+            severity: "info",
+            userMessage: `You may only add ${item.variant.quantity} of this product`,
+            logMessage: `Updating cart item quantity failed because the quantity was more than the stock`,
+            key: "id",
+            value: id,
+          });
+        }
+
+        const updatedItem = await tx
+          .update(cartItems)
+          .set({ quantity: sql`${cartItems.quantity} + ${data}` })
+          .where(eq(cartItems.id, id));
+
+        return updatedItem;
+      });
 
       return item;
     } catch (e) {
