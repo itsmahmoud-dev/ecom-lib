@@ -153,7 +153,7 @@ export class Order {
           code: OrderErrorCodes.OrderNotFound,
           severity: "warning",
           logMessage:
-            "Chaning an order's status failed becuase the order does not exist",
+            "Changing an order's status failed becuase the order does not exist",
           userMessage: "Order was not found",
           key: "id",
           value: id,
