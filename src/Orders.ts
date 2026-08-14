@@ -160,7 +160,19 @@ export class Order {
         });
       }
 
-      if (status === "canceled" && order?.status !== "pending") {
+      if (order.status === "canceled") {
+        throw new OperationalError({
+          code: OrderErrorCodes.InvalidOrderStatus,
+          severity: "info",
+          logMessage:
+            "Changing an order's status failed becuase the order has been canceled",
+          userMessage: "Order is canceled and no longer editable",
+          key: "id",
+          value: id,
+        });
+      }
+
+      if (status === "canceled" && order.status !== "pending") {
         throw new OperationalError({
           code: OrderErrorCodes.InvalidOrderStatus,
           severity: "warning",
