@@ -2,7 +2,7 @@ import { primaryKey, snakeCase } from "drizzle-orm/pg-core";
 import { productVariants } from "./productVariants.model";
 import { attributes } from "./attributes.model";
 
-export const productVariantsToAttribute = snakeCase.table(
+export const productVariantsToAttributes = snakeCase.table(
   "productVariantsToAttributes",
   (t) => ({
     productVariantId: t

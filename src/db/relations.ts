@@ -45,9 +45,9 @@ export const relations = defineRelations(schema, (r) => ({
     // one variant has many attributes
     attributes: r.many.attributes({
       from: r.productVariants.id.through(
-        r.productVariantsToAttribute.productVariantId,
+        r.productVariantsToAttributes.productVariantId,
       ),
-      to: r.attributes.id.through(r.productVariantsToAttribute.attributeId),
+      to: r.attributes.id.through(r.productVariantsToAttributes.attributeId),
     }),
     // one variant can have many images
     images: r.many.images({

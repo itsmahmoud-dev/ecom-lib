@@ -2,11 +2,102 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { join } from "path";
 import { faker } from "@faker-js/faker";
 import { store } from ".";
-import { attributes, images, products } from "../src/db/schema";
+import {
+  attributes,
+  images,
+  imagesToAttributes,
+  products,
+  productsToAttributes,
+  productVariants,
+  productVariantsToAttributes,
+  productVariantsToImages,
+} from "../src/db/schema";
 import { AttributeErrorCodes, ProductErrorCodes } from "../src/lib/errors";
+import type z from "zod";
+import type { updateProductSchema } from "../src/types/products.type";
+
+async function makeProduct(
+  product: typeof products.$inferInsert,
+  attrs: Record<string, string>,
+) {
+  const [dbProduct] = await store.db
+    .insert(products)
+    .values(product)
+    .returning();
+  await store.db.insert(productsToAttributes).values(
+    Object.entries(attrs).map(([key, id]) => ({
+      productId: dbProduct!.id,
+      attributeId: id,
+      key,
+    })),
+  );
+  return {
+    ...dbProduct!,
+    attributes: attrs,
+  };
+}
+
+async function makeVariant(
+  variant: typeof productVariants.$inferInsert,
+  attrs: Record<string, string>,
+) {
+  const [dbVariant] = await store.db
+    .insert(productVariants)
+    .values(variant)
+    .returning();
+  await store.db.insert(productVariantsToAttributes).values(
+    Object.entries(attrs).map(([key, id]) => ({
+      productVariantId: dbVariant!.id,
+      attributeId: id,
+      key,
+    })),
+  );
+  return {
+    ...dbVariant!,
+    attributes: attrs,
+  };
+}
+
+async function makeImage(
+  image: typeof images.$inferInsert,
+  attrs: Record<string, string>,
+) {
+  await Bun.write(
+    `${store.dataPath}/images/products/${image.path}`,
+    await Bun.file(join(import.meta.dirname, `./${image.path}`)).arrayBuffer(),
+  );
+  const [dbImage] = await store.db
+    .insert(images)
+    .values({
+      ...image,
+      path: `/images/products/${image.path}`,
+    })
+    .returning();
+  await store.db.insert(imagesToAttributes).values(
+    Object.entries(attrs).map(([key, id]) => ({
+      imageId: dbImage!.id,
+      attributeId: id,
+      key,
+    })),
+  );
+
+  return {
+    ...dbImage!,
+    attributes: attrs,
+  };
+}
+
+async function makeImageVariantLinks(
+  links: { imageId: string; productVariantId: string }[],
+) {
+  await store.db.insert(productVariantsToImages).values(links);
+}
 
 async function makeAttribute(key: string, value: string) {
-  return await store.attributes.addAttribute({ key, value });
+  return (
+    (await store.db.query.attributes.findFirst({ where: { key, value } })) ??
+    (await store.attributes.addAttribute({ key, value }))
+  );
 }
 
 async function getFile(path: string) {
@@ -393,6 +484,260 @@ describe("store.products.addProduct", () => {
           ]),
         }),
       );
+    });
+  });
+});
+
+describe("store.products.updateProduct", () => {
+  describe("Given valid input", () => {
+    test("Correct base product fields updates", async () => {
+      const productId = crypto.randomUUID();
+      const electronicAttr = await makeAttribute("category", "electronics");
+      const clothingAttr = await makeAttribute("category", "clothing");
+
+      const oldProduct = await makeProduct(
+        {
+          id: productId,
+          name: faker.commerce.productName(),
+          barcode: faker.string.numeric(12),
+          description: faker.commerce.productDescription(),
+          active: true,
+        },
+        { [clothingAttr.key]: clothingAttr.id },
+      );
+
+      const newFields: typeof products.$inferInsert = {
+        name: faker.commerce.productName(),
+        barcode: faker.string.numeric(12),
+        description: faker.commerce.productDescription(),
+        active: false,
+      };
+
+      await store.products.updateProduct({
+        product: {
+          id: productId,
+          version: oldProduct.version,
+          ...newFields,
+          attributes: {
+            [electronicAttr.key]: electronicAttr.id,
+          },
+        },
+      });
+
+      const updatedProduct = await store.db.query.products.findFirst({
+        where: { id: productId },
+        with: {
+          attributes: {
+            columns: { id: true },
+          },
+        },
+      });
+
+      expect(updatedProduct).toBeDefined();
+      expect(updatedProduct).toMatchObject(newFields);
+      expect(updatedProduct!.attributes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: electronicAttr.id,
+          }),
+        ]),
+      );
+    });
+
+    test("Correct product variants and images fields updates", async () => {
+      const attr1 = await makeAttribute(
+        faker.string.alpha(5),
+        faker.string.alpha(7),
+      );
+
+      const whiteColorAttr = await makeAttribute("color", faker.string.alpha(7));
+      const blueColorAttr = await makeAttribute("color", faker.string.alpha(7));
+      const purpleColorAttr = await makeAttribute(
+        "color",
+        faker.string.alpha(7),
+      );
+      const blackColorAttr = await makeAttribute("color", faker.string.alpha(7));
+      const ram12Attr = await makeAttribute("ram", faker.string.alpha(7));
+      const ram16Attr = await makeAttribute("ram", faker.string.alpha(7));
+
+      const productId = crypto.randomUUID();
+
+      const oldProduct = await makeProduct(
+        {
+          id: productId,
+          name: faker.commerce.productName(),
+          description: faker.commerce.productDescription(),
+          barcode: faker.string.numeric(12),
+          active: true,
+        },
+        {
+          [attr1.key]: attr1.id,
+        },
+      );
+
+      // change its fields
+      const oldVariant1 = await makeVariant(
+        {
+          productId,
+          price: faker.number.float({ min: 0.1, fractionDigits: 2 }),
+          quantity: faker.number.int({ min: 1 }),
+        },
+        {
+          [whiteColorAttr.key]: whiteColorAttr.id,
+        },
+      );
+      // change its attributes
+      const oldVariant2 = await makeVariant(
+        {
+          productId,
+          price: faker.number.float({ min: 0.1, fractionDigits: 2 }),
+          quantity: faker.number.int({ min: 1 }),
+        },
+        {
+          [blueColorAttr.key]: blueColorAttr.id,
+          [ram12Attr.key]: ram12Attr.id,
+        },
+      );
+      // change its image
+      const oldVariant3 = await makeVariant(
+        {
+          productId,
+          price: faker.number.float({ min: 0.1, fractionDigits: 2 }),
+          quantity: faker.number.int({ min: 1 }),
+        },
+        {
+          [blackColorAttr.key]: blackColorAttr.id,
+        },
+      );
+
+      const whiteImage1 = await makeImage(
+        { path: "S26-ultra-white-1.webp" },
+        { [whiteColorAttr.key]: whiteColorAttr.id },
+      );
+      const whiteImage2 = await makeImage(
+        { path: "S26-ultra-white-2.webp" },
+        { [whiteColorAttr.key]: whiteColorAttr.id },
+      );
+
+      const blueImage1 = await makeImage(
+        { path: "S26-ultra-blue-1.webp" },
+        { [blueColorAttr.key]: blueColorAttr.id },
+      );
+      const blueImage2 = await makeImage(
+        { path: "S26-ultra-blue-2.webp" },
+        { [blueColorAttr.key]: blueColorAttr.id },
+      );
+
+      const blackImage1 = await makeImage(
+        { path: "S26-ultra-black-1.webp" },
+        { [blackColorAttr.key]: blackColorAttr.id },
+      );
+
+      await makeImageVariantLinks([
+        { imageId: whiteImage1.id, productVariantId: oldVariant1.id },
+        { imageId: whiteImage2.id, productVariantId: oldVariant1.id },
+        { imageId: blueImage1.id, productVariantId: oldVariant2.id },
+        { imageId: blueImage2.id, productVariantId: oldVariant2.id },
+        { imageId: blackImage1.id, productVariantId: oldVariant3.id },
+      ]);
+
+      const updatePayload: z.infer<typeof updateProductSchema> = {
+        product: { id: productId, version: oldProduct.version },
+        variants: [
+          {
+            id: oldVariant1.id,
+            discount: faker.number.int({ min: 0, max: 90 }),
+            price: faker.number.float({ min: 0.1, fractionDigits: 2 }),
+          },
+          {
+            id: oldVariant2.id,
+            attributes: {
+              [ram16Attr.key]: ram16Attr.id,
+            },
+          },
+          {
+            price: faker.number.float({ min: 0.1, fractionDigits: 2 }),
+            quantity: faker.number.int({ min: 1 }),
+            attributes: {
+              [purpleColorAttr.key]: purpleColorAttr.id,
+            },
+          },
+        ],
+        images: [
+          {
+            file: await getFile(
+              join(import.meta.dirname, "S26-ultra-black-2.webp"),
+            ),
+            attributes: { [blackColorAttr.key]: blackColorAttr.id },
+          },
+          {
+            file: await getFile(
+              join(import.meta.dirname, "S26-ultra-purple-1.webp"),
+            ),
+            attributes: { [purpleColorAttr.key]: purpleColorAttr.id },
+          },
+          {
+            file: await getFile(
+              join(import.meta.dirname, "S26-ultra-purple-2.webp"),
+            ),
+            attributes: { [purpleColorAttr.key]: purpleColorAttr.id },
+          },
+        ],
+        imagesToDelete: [blackImage1.id],
+      };
+
+      await store.products.updateProduct(updatePayload);
+
+      const updatedProduct = await store.db.query.products.findFirst({
+        where: { id: productId },
+        with: {
+          attributes: true,
+          variants: {
+            with: {
+              attributes: true,
+              images: {
+                with: {
+                  attributes: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      expect(updatedProduct).toBeDefined();
+
+      expect(
+        updatedProduct!.variants.find(
+          (el) => el.id === updatePayload.variants![0]!.id,
+        ),
+      ).toEqual(expect.objectContaining(updatePayload.variants![0]!));
+
+      expect(
+        updatedProduct!.variants
+          .find((el) => el.id === updatePayload.variants![1]!.id)
+          ?.attributes.some(
+            (el) => el.key === ram16Attr.key && el.id === ram16Attr.id,
+          ),
+      ).toBeTrue();
+
+      expect(
+        updatedProduct!.variants.find((el) =>
+          el.attributes.some((a) => a.id === purpleColorAttr.id),
+        ),
+      ).toBeDefined();
+
+      expect(
+        updatedProduct!.variants.find((el) =>
+          el.attributes.some((a) => a.id === purpleColorAttr.id),
+        )?.images,
+      ).toBeArrayOfSize(2);
+
+      expect(
+        updatedProduct!.variants.find((el) =>
+          el.attributes.some((a) => a.id === blackColorAttr.id),
+        )?.images,
+      ).toBeArrayOfSize(1);
     });
   });
 });

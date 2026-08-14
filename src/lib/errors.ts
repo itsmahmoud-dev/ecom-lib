@@ -27,6 +27,7 @@ export enum ProductErrorCodes {
   VariantNotFound = "P002",
   ImageNotFound = "P003",
   VersionMismatch = "P004",
+  InsuffecientImages = "P005",
 }
 
 export enum AttributeErrorCodes {
