@@ -5,7 +5,6 @@ import {
   handleError,
   OperationalError,
   OrderErrorCodes,
-  ProductErrorCodes,
   UserErrorCodes,
 } from "./lib/errors";
 import { Store } from "./Store";
@@ -144,6 +143,9 @@ export class Order {
     try {
       const order = await this.store.db.query.orders.findFirst({
         where: { id },
+        with: {
+          items: true,
+        },
       });
 
       if (!order) {
@@ -170,11 +172,36 @@ export class Order {
         });
       }
 
-      const [updatedOrder] = await this.store.db
-        .update(orders)
-        .set({ status })
-        .where(eq(orders.id, id))
-        .returning();
+      const updatedOrder = await this.store.db.transaction(async (tx) => {
+        const [updatedOrder] = await tx
+          .update(orders)
+          .set({ status })
+          .where(eq(orders.id, id))
+          .returning();
+
+        if (status === "canceled") {
+          const variantQuantityUpdateSQLChunks: SQL[] = [];
+          const variantQuantityUpdateSQLConditions: string[] = [];
+
+          for (const item of order.items) {
+            variantQuantityUpdateSQLChunks.push(
+              sql`WHEN ${productVariants.id} = ${item.variantId} THEN ${productVariants.quantity} + ${item.quantity}`,
+            );
+            variantQuantityUpdateSQLConditions.push(item.variantId);
+          }
+
+          await tx
+            .update(productVariants)
+            .set({
+              quantity: sql`(CASE ${sql.join(variantQuantityUpdateSQLChunks, sql` `)} ELSE ${productVariants.quantity} END)`,
+            })
+            .where(
+              inArray(productVariants.id, variantQuantityUpdateSQLConditions),
+            );
+        }
+
+        return updatedOrder;
+      });
 
       return updatedOrder;
     } catch (e) {
