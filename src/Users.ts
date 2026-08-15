@@ -39,11 +39,7 @@ export class Users {
     if (!user) {
       throw new OperationalError({
         code: UserErrorCodes.UserNotFound,
-        severity: "warning",
-        userMessage: "User was not found",
-        logMessage: "Finding user failed because it does not exist",
-        key: "id",
-        value: id,
+        message: "Finding user failed because it does not exist",
       });
     }
 
@@ -68,12 +64,8 @@ export class Users {
       if (existingUser) {
         throw new OperationalError({
           code: UserErrorCodes.EmailAlreadyRegistered,
-          severity: "info",
-          userMessage: "Email is already in use",
-          logMessage:
+          message:
             "Registering user failed because the email they used is already in use",
-          key: "email",
-          value: email,
         });
       }
 
@@ -123,11 +115,7 @@ export class Users {
     if (!user) {
       throw new OperationalError({
         code: UserErrorCodes.VerificationOtpInvalidOrExpired,
-        severity: "warning",
-        userMessage: "Verification code is invalid or has expired",
-        logMessage: "Verifying user failed because their otp was invalid",
-        key: "verificationOtp",
-        value: otp,
+        message: "Verifying user failed because their otp was invalid",
       });
     }
 
@@ -142,9 +130,7 @@ export class Users {
 
       throw new OperationalError({
         code: UserErrorCodes.VerificationOtpInvalidOrExpired,
-        severity: "info",
-        userMessage: "Verification code is invalid or has expired",
-        logMessage: `Verifying user failed because the otp has been expired for ${((Date.now() - user.verificationOtpExpiresAt!.getTime()) / 60000).toFixed(2)} minutes`,
+        message: `Verifying user failed because the otp has been expired for ${((Date.now() - user.verificationOtpExpiresAt!.getTime()) / 60000).toFixed(2)} minutes`,
       });
     }
 
@@ -177,32 +163,21 @@ export class Users {
     if (!user) {
       throw new OperationalError({
         code: UserErrorCodes.InvalidEmailOrPassword,
-        severity: "info",
-        userMessage: "Email or password is incorrect",
-        logMessage: "Logging user in failed because their email was not found",
-        key: "email",
-        value: email,
+        message: "Logging user in failed because their email was not found",
       });
     }
 
     if (user.status !== "verified") {
       throw new OperationalError({
         code: UserErrorCodes.AccountNotVerified,
-        severity: "info",
-        userMessage: "Account not verified",
-        logMessage: "Logging user in failed because they are not verified yet",
-        key: "status",
-        value: user.status,
+        message: "Logging user in failed because they are not verified yet",
       });
     }
 
     if (!verifyPassword(password, user?.password)) {
       throw new OperationalError({
         code: UserErrorCodes.InvalidEmailOrPassword,
-        severity: "info",
-        userMessage: "Email or password is incorrect",
-        logMessage: "Logging user in failed because their password is incorrect",
-        key: "password",
+        message: "Logging user in failed because their password is incorrect",
       });
     }
 
@@ -233,11 +208,7 @@ export class Users {
     if (!user) {
       throw new OperationalError({
         code: UserErrorCodes.UserNotFound,
-        severity: "warning",
-        userMessage: "User not found",
-        logMessage: "Changing user name failed because the user does not exist",
-        key: "id",
-        value: id,
+        message: "Changing user name failed because the user does not exist",
       });
     }
 
@@ -282,12 +253,8 @@ export class Users {
     if (existingUser) {
       throw new OperationalError({
         code: UserErrorCodes.EmailAlreadyRegistered,
-        severity: "info",
-        userMessage: "Email is already taken",
-        logMessage:
+        message:
           "Requesting to change an email for a user failed because the new email is already taken",
-        key: "email",
-        value: newEmail,
       });
     }
 
@@ -301,24 +268,16 @@ export class Users {
     if (!user) {
       throw new OperationalError({
         code: UserErrorCodes.UserNotFound,
-        severity: "warning",
-        userMessage: "User not found",
-        logMessage:
+        message:
           "Requesting to change an email for a user failed because the user does not exist",
-        key: "id",
-        value: id,
       });
     }
 
     if (newEmail === user.email) {
       throw new OperationalError({
         code: UserErrorCodes.SameEmail,
-        severity: "info",
-        userMessage: "New email cannot be the same as your current email",
-        logMessage:
+        message:
           "Requesting to change an email for a user failed because the new email is the same as the old one",
-        key: "email",
-        value: newEmail,
       });
     }
 
@@ -372,12 +331,8 @@ export class Users {
     if (existingUser) {
       throw new OperationalError({
         code: UserErrorCodes.EmailAlreadyRegistered,
-        severity: "info",
-        userMessage: "Email is already taken",
-        logMessage:
+        message:
           "Changing an email for a user failed because the new email is already taken",
-        key: "email",
-        value: newEmail,
       });
     }
 
@@ -391,23 +346,16 @@ export class Users {
     if (!user) {
       throw new OperationalError({
         code: UserErrorCodes.UserNotFound,
-        severity: "warning",
-        userMessage: "User not found",
-        logMessage:
+        message:
           "Changing an email for a user failed because the user does not exist",
-        key: "id",
-        value: id,
       });
     }
 
     if (!user.emailChangeOtp || user.emailChangeOtp !== otp) {
       throw new OperationalError({
         code: UserErrorCodes.EmailChangeOtpInvalidOrExpired,
-        severity: "info",
-        userMessage: "Verification code is invalid or has expired",
-        logMessage:
+        message:
           "Changing an email for a user failed because the OTP is invalid",
-        key: "emailChangeOtp",
       });
     }
 
@@ -422,23 +370,16 @@ export class Users {
 
       throw new OperationalError({
         code: UserErrorCodes.EmailChangeOtpInvalidOrExpired,
-        severity: "info",
-        userMessage: "Verification code is invalid or has expired",
-        logMessage:
+        message:
           "Changing an email for a user failed because the OTP has expired",
-        key: "emailChangeOtpExpiresAt",
-        value: user.emailChangeOtpExpiresAt.toString(),
       });
     }
 
     if (!verifyPassword(password, user.password)) {
       throw new OperationalError({
         code: UserErrorCodes.WrongPassword,
-        severity: "info",
-        userMessage: "Password is incorrect",
-        logMessage:
+        message:
           "Changing an email for a user failed because the password is incorrect",
-        key: "password",
       });
     }
 
@@ -489,23 +430,15 @@ export class Users {
     if (!user) {
       throw new OperationalError({
         code: UserErrorCodes.UserNotFound,
-        severity: "warning",
-        userMessage: "User was not found",
-        logMessage:
-          "Changing user password failed because the user does not exist",
-        key: "id",
-        value: id,
+        message: "Changing user password failed because the user does not exist",
       });
     }
 
     if (!verifyPassword(oldPassword, user.password)) {
       throw new OperationalError({
         code: UserErrorCodes.WrongCurrentPassword,
-        severity: "info",
-        userMessage: "Invalid current password",
-        logMessage:
+        message:
           "Changing user password failed because the old password is incorrect",
-        key: "oldPassword",
       });
     }
 
@@ -536,12 +469,8 @@ export class Users {
     if (!user) {
       throw new OperationalError({
         code: UserErrorCodes.UserNotFound,
-        severity: "warning",
-        userMessage: "User was not found",
-        logMessage:
+        message:
           "Requesting a password reset failed because the user does not exist",
-        key: "email",
-        value: email,
       });
     }
 
@@ -582,11 +511,8 @@ export class Users {
     if (!user) {
       throw new OperationalError({
         code: UserErrorCodes.InvalidOrExpiredResetToken,
-        severity: "warning",
-        userMessage: "Password reset link is invalid or has expired",
-        logMessage:
+        message:
           "Resetting a password failed because the token does not match any user",
-        key: "token",
       });
     }
 
@@ -596,11 +522,7 @@ export class Users {
     ) {
       throw new OperationalError({
         code: UserErrorCodes.InvalidOrExpiredResetToken,
-        severity: "info",
-        userMessage: "Password reset link is invalid or has expired",
-        logMessage: "Resetting a password failed because the token has expired",
-        key: "passwordResetTokenExpiresAt",
-        value: user.passwordResetTokenExpiresAt.toString(),
+        message: "Resetting a password failed because the token has expired",
       });
     }
 
@@ -667,9 +589,7 @@ export class Users {
     if (!updatedAddress) {
       throw new OperationalError({
         code: UserErrorCodes.AddressNoFound,
-        severity: "warning",
-        userMessage: "Address was not found",
-        logMessage: "Updating address failed because it does not exist",
+        message: "Updating address failed because it does not exist",
       });
     }
 
@@ -685,9 +605,7 @@ export class Users {
     if (!address) {
       throw new OperationalError({
         code: UserErrorCodes.AddressNoFound,
-        severity: "warning",
-        userMessage: "Address was not found",
-        logMessage: "Deleting address failed because it does not exist",
+        message: "Deleting address failed because it does not exist",
       });
     }
 

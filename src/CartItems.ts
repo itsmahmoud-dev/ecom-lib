@@ -67,11 +67,7 @@ export class CartItems {
       if (!item) {
         throw new OperationalError({
           code: CartItemErrorsCodes.CartItemNotFound,
-          severity: "warning",
-          userMessage: "Cart item was not found",
-          logMessage: `Removing cart item failed because it does not exist`,
-          key: "id",
-          value: id,
+          message: `Removing cart item failed because it does not exist`,
         });
       }
 
@@ -97,22 +93,14 @@ export class CartItems {
         if (!cartItem) {
           throw new OperationalError({
             code: CartItemErrorsCodes.CartItemNotFound,
-            severity: "warning",
-            userMessage: "Cart item was not found",
-            logMessage: `Updating cart item quantity failed because it does not exist`,
-            key: "id",
-            value: id,
+            message: `Updating cart item quantity failed because it does not exist`,
           });
         }
 
         if (data > cartItem.variant.quantity) {
           throw new OperationalError({
             code: CartItemErrorsCodes.CartItemNotFound,
-            severity: "info",
-            userMessage: `You may only add ${item.variant.quantity} of this product`,
-            logMessage: `Updating cart item quantity failed because the quantity was more than the stock`,
-            key: "id",
-            value: id,
+            message: `Updating cart item quantity failed because the quantity was more than the stock`,
           });
         }
 

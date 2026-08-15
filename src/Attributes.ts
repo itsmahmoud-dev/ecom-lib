@@ -63,11 +63,7 @@ export class Attributes {
     if (!attr) {
       throw new OperationalError({
         code: AttributeErrorCodes.AttributeNotFound,
-        severity: "warning",
-        userMessage: "Attribute was not found",
-        logMessage: `Removing an attribute failed because it does not exist`,
-        key: "id",
-        value: id,
+        message: `Removing an attribute failed because it does not exist`,
       });
     }
   }

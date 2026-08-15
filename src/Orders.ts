@@ -36,11 +36,7 @@ export class Order {
       if (!user) {
         throw new OperationalError({
           code: UserErrorCodes.UserNotFound,
-          severity: "warning",
-          logMessage: "Placing an order failed because the user does not exist",
-          userMessage: "User was not found",
-          key: "id",
-          value: userId,
+          message: "Placing an order failed because the user does not exist",
         });
       }
 
@@ -62,9 +58,7 @@ export class Order {
       if (!cartItems.length) {
         throw new OperationalError({
           code: OrderErrorCodes.CartEmpty,
-          logMessage: "Placing an order failed becuase the user's cart is empty",
-          userMessage: "Your cart is empty",
-          severity: "warning",
+          message: "Placing an order failed becuase the user's cart is empty",
         });
       }
 
@@ -79,12 +73,9 @@ export class Order {
           if (item.quantity > variant.quantity) {
             throw new OperationalError({
               code: OrderErrorCodes.QuantityNotEnough,
-              severity: "info",
-              logMessage:
+              message:
                 "Placing an order failed because one of the items' quantity was more than the available stock",
-              userMessage: `Quantity limits apply to ${variant?.product.name}. You may purchase up to ${variant?.quantity} of this product`,
-              key: ["id", "quantity"],
-              value: [item.variantId, item.quantity.toString()],
+              //TODO: COMPLETE DATA
             });
           }
 
@@ -151,36 +142,24 @@ export class Order {
       if (!order) {
         throw new OperationalError({
           code: OrderErrorCodes.OrderNotFound,
-          severity: "warning",
-          logMessage:
+          message:
             "Changing an order's status failed becuase the order does not exist",
-          userMessage: "Order was not found",
-          key: "id",
-          value: id,
         });
       }
 
       if (order.status === "canceled") {
         throw new OperationalError({
           code: OrderErrorCodes.InvalidOrderStatus,
-          severity: "info",
-          logMessage:
+          message:
             "Changing an order's status failed becuase the order has been canceled",
-          userMessage: "Order is canceled and no longer editable",
-          key: "id",
-          value: id,
         });
       }
 
       if (status === "canceled" && order.status !== "pending") {
         throw new OperationalError({
           code: OrderErrorCodes.InvalidOrderStatus,
-          severity: "warning",
-          logMessage:
-            "Changing an order's status failed becuase the order is not in the pending state. Please contact support.",
-          userMessage: "Order can't be cancelled at this stage",
-          key: "id",
-          value: id,
+          message:
+            "Canceling an order failed because it's past the pending state.",
         });
       }
 

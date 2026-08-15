@@ -54,11 +54,7 @@ export class Collections {
       if (!collection) {
         throw new OperationalError({
           code: CollectionErrorCodes.CollectionNotFound,
-          severity: "warning",
-          userMessage: "Collection was not found",
-          logMessage: "Updating collection failed because it does not exist",
-          key: "id",
-          value: data.id,
+          message: "Updating collection failed because it does not exist",
         });
       }
 
@@ -125,11 +121,7 @@ export class Collections {
       if (!collection) {
         throw new OperationalError({
           code: CollectionErrorCodes.CollectionNotFound,
-          severity: "warning",
-          userMessage: "Collection was not found",
-          logMessage: "Removing collection failed because it does not exist",
-          key: "id",
-          value: id,
+          message: "Removing collection failed because it does not exist",
         });
       }
     } catch (e) {

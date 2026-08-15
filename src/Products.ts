@@ -166,19 +166,14 @@ export class Products {
       if (!dbProduct) {
         throw new OperationalError({
           code: ProductErrorCodes.ProductNotFound,
-          severity: "warning",
-          userMessage: "Product was not found",
-          logMessage: "Updating a product failed because it does not exist",
+          message: "Updating a product failed because it does not exist",
         });
       }
 
       if (dbProduct.version !== product.version) {
         throw new OperationalError({
           code: ProductErrorCodes.VersionMismatch,
-          severity: "info",
-          logMessage:
-            "Updating a product failed because the versions mismatched",
-          userMessage: "Please refresh and try again",
+          message: "Updating a product failed because the versions mismatched",
         });
       }
 
@@ -429,9 +424,7 @@ export class Products {
         if (imagesWithSubsetVariants.length === 0) {
           throw new OperationalError({
             code: ProductErrorCodes.InsuffecientImages,
-            severity: "info",
-            logMessage: `Attempt to update product failed because at least one of the variants (${variant.id}) did not have an image`,
-            userMessage: "Each variant needs at least one image",
+            message: `Attempt to update product failed because at least one of the variants (${variant.id}) did not have an image`,
           });
         }
 
@@ -619,9 +612,7 @@ export class Products {
       if (!product) {
         throw new OperationalError({
           code: ProductErrorCodes.ProductNotFound,
-          severity: "warning",
-          logMessage: "Deleting a product failed because it does not exist",
-          userMessage: "Product was not found",
+          message: "Deleting a product failed because it does not exist",
         });
       }
 

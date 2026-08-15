@@ -2,6 +2,19 @@ import { DrizzleQueryError } from "drizzle-orm";
 import pc from "picocolors";
 
 import { extractKeyValue } from "./string";
+import {
+  getTableConfig,
+  type PgColumn,
+  type PgTable,
+} from "drizzle-orm/pg-core";
+import {
+  addresses,
+  cartItems,
+  imagesToAttributes,
+  inCollection,
+  productsToAttributes,
+  productVariantsToAttributes,
+} from "../db/schema";
 
 export type ErrorSeverity = "error" | "warning" | "info";
 
@@ -52,39 +65,27 @@ export enum OrderErrorCodes {
   QuantityNotEnough = "OR003",
 }
 
+// =================== Error Class ===================
+
 type args = {
   code: string;
-  severity: ErrorSeverity;
-  userMessage: string;
-  logMessage: string;
+  message: string;
   cause?: string;
-  key?: string | string[];
-  value?: string | string[];
+  data?: any;
 };
 
 export class OperationalError extends Error {
   code: string;
-  severity: ErrorSeverity;
-  userMessage: string;
-  logMessage: string;
-  override cause?: string;
-  key?: string | string[];
-  value?: string | string[];
   override message: string;
+  override cause?: string;
+  data: any;
 
   constructor(params: args) {
     super();
     this.code = params.code;
-    this.severity = params.severity;
-    this.userMessage = params.userMessage;
-    this.message = params.logMessage;
-    this.logMessage = params.logMessage;
+    this.message = params.message;
     this.cause = params.cause;
-    this.key = params.key;
-    if (this.logMessage) {
-      this.value = params.value;
-      logMessage(this.severity, this.logMessage);
-    }
+    this.data = params.data;
   }
 }
 
@@ -97,12 +98,7 @@ export function handleError(e: unknown): never {
       if (key?.includes("key") || key?.includes("value")) {
         throw new OperationalError({
           code: AttributeErrorCodes.AttributeAlreadyExists,
-          severity: "info",
-          logMessage: `Attempt to insert/update attribute with key/value (${value}) failed because an attribute with the same key/value already exists.`,
-          userMessage: "Attribute already exists",
-          cause: `Attribute (${value}) already exists`,
-          key: key?.split(","),
-          value: value?.split(","),
+          message: `Inserting/updating an attribute failed because they key value pair already exists`,
         });
       }
     }
@@ -110,12 +106,7 @@ export function handleError(e: unknown): never {
       if (key === "barcode") {
         throw new OperationalError({
           code: ProductErrorCodes.BarcodeAlreadyExists,
-          severity: "info",
-          logMessage: `Attempt to insert/update product with barcode (${value}) failed because a product with the same barcode already exists.`,
-          userMessage: "Barcode is registered to another product",
-          cause: `Barcode (${value}) is already registered to another product`,
-          key: key,
-          value: value,
+          message: `Inserting/Updating a product with barcode (${value}) failed because a product with the same barcode already exists.`,
         });
       }
     }
@@ -127,113 +118,103 @@ export function handleError(e: unknown): never {
       ) {
         throw new OperationalError({
           code: CartItemErrorsCodes.CartItemAlreadyExists,
-          severity: "warning",
-          userMessage: "Cart item already exists",
-          logMessage: "Adding cart item failed because it already exists",
-          key: key.split(","),
-          value: value?.split(","),
+          message: "Adding cart item failed because it already exists",
         });
       }
     }
   }
 
-  if (isConstraintViolationError(e)) {
+  if (isCheckViolationError(e)) {
     if (e.cause.table === "cartItems" && e.cause.constraint === "min_quantity") {
       throw new OperationalError({
         code: CartItemErrorsCodes.QuantityInvalid,
-        severity: "warning",
-        userMessage: "Quantity should be a positive number",
-        logMessage:
-          "Updating/Decrementing cart item quantity failed because the quantity is not positive",
+        message: `Updating cart item quantity failed because the quantity is not positive`,
       });
     }
   }
 
   if (isForeignKeyViolation(e)) {
     const [key, value] = e.cause.detail;
-    if (e.cause.constraint === "cartItems_user_id_users_id_fkey") {
+    if (
+      e.cause.constraint ===
+      getForeignKeyConstraintName(cartItems, cartItems.userId)
+    ) {
       throw new OperationalError({
         code: UserErrorCodes.UserNotFound,
-        severity: "warning",
-        userMessage: "User was not found",
-        logMessage: "Adding a cart item failed because the user was not found",
-        key,
-        value,
-      });
-    }
-    if (e.cause.constraint === "cartItems_variant_id_productVariant_id_fkey") {
-      throw new OperationalError({
-        code: ProductErrorCodes.VariantNotFound,
-        severity: "warning",
-        userMessage: "One of the variants was not found",
-        logMessage:
-          "Adding a cart item failed because one of the variants was not found",
-        key,
-        value,
-      });
-    }
-    if (e.cause.constraint === "cartItems_product_id_products_id_fkey") {
-      throw new OperationalError({
-        code: ProductErrorCodes.ProductNotFound,
-        severity: "warning",
-        userMessage: "One of the variants was not found",
-        logMessage:
-          "Adding a cart item failed because the product was not found",
-        key,
-        value,
+        message: "Adding a cart item failed because the user was not found",
       });
     }
     if (
       e.cause.constraint ===
-        "productsToAttributes_attribute_id_attributes_id_fkey" ||
+      getForeignKeyConstraintName(cartItems, cartItems.variantId)
+    ) {
+      throw new OperationalError({
+        code: ProductErrorCodes.VariantNotFound,
+        message:
+          "Adding a cart item failed because one of the variants was not found",
+      });
+    }
+    if (
       e.cause.constraint ===
-        "productVariantsToAttributes_attribute_id_attributes_id_fkey" ||
-      e.cause.constraint === "imagesToAttributes_attribute_id_attributes_id_fkey"
+      getForeignKeyConstraintName(cartItems, cartItems.productId)
+    ) {
+      throw new OperationalError({
+        code: ProductErrorCodes.ProductNotFound,
+        message: "Adding a cart item failed because the product was not found",
+      });
+    }
+    if (
+      e.cause.constraint ===
+        getForeignKeyConstraintName(
+          productsToAttributes,
+          productsToAttributes.attributeId,
+        ) ||
+      e.cause.constraint ===
+        getForeignKeyConstraintName(
+          productVariantsToAttributes,
+          productVariantsToAttributes.attributeId,
+        ) ||
+      e.cause.constraint ===
+        getForeignKeyConstraintName(
+          imagesToAttributes,
+          imagesToAttributes.attributeId,
+        )
     ) {
       throw new OperationalError({
         code: AttributeErrorCodes.AttributeNotFound,
-        severity: "warning",
-        userMessage: "One of the attributes was not found",
-        logMessage:
+        message:
           "Adding a cart item failed because one of the attributes was not found",
-        key,
-        value,
       });
     }
-    if (e.cause.constraint === "addresses_user_id_users_id_fkey") {
+    if (
+      e.cause.constraint ===
+      getForeignKeyConstraintName(addresses, addresses.userId)
+    ) {
       throw new OperationalError({
         code: UserErrorCodes.UserNotFound,
-        severity: "warning",
-        userMessage: "User was not found",
-        logMessage: "Adding an address failed because the user was not found",
-        key,
-        value,
-      });
-    }
-
-    if (e.cause.constraint === "inCollection_product_id_products_id_fkey") {
-      throw new OperationalError({
-        code: ProductErrorCodes.ProductNotFound,
-        severity: "warning",
-        userMessage: "Product is not found",
-        logMessage:
-          "Adding a product to a collection failed because the product was not found",
-        key,
-        value,
+        message: "Adding an address failed because the user was not found",
       });
     }
 
     if (
-      e.cause.constraint === "inCollection_collection_id_collections_id_fkey"
+      e.cause.constraint ===
+      getForeignKeyConstraintName(inCollection, inCollection.productId)
+    ) {
+      throw new OperationalError({
+        code: ProductErrorCodes.ProductNotFound,
+        message:
+          "Adding a product to a collection failed because the product was not found",
+      });
+    }
+
+    if (
+      e.cause.constraint ===
+      getForeignKeyConstraintName(inCollection, inCollection.collectionId)
     ) {
       throw new OperationalError({
         code: CollectionErrorCodes.CollectionNotFound,
-        severity: "warning",
-        userMessage: "Collection is not found",
-        logMessage:
+        message:
           "Adding a product to a collection failed because the collection was not found",
-        key,
-        value,
       });
     }
   }
@@ -255,9 +236,7 @@ export function isUniqueViolationError(e: unknown): e is DrizzleQueryError & {
   );
 }
 
-export function isConstraintViolationError(
-  e: unknown,
-): e is DrizzleQueryError & {
+export function isCheckViolationError(e: unknown): e is DrizzleQueryError & {
   cause: { errno: string; detail: string; constraint: string; table: string };
 } {
   return (
@@ -312,4 +291,16 @@ export function logMessage(severity: ErrorSeverity, message: string) {
       `[${new Date().toLocaleString()}]: ${message}`,
     );
   }
+}
+
+function getForeignKeyConstraintName(table: PgTable, column: PgColumn) {
+  const config = getTableConfig(table);
+  const ref = config.foreignKeys.filter((key) =>
+    key
+      .reference()
+      .columns.map((el) => el.name)
+      .includes(column.name),
+  );
+
+  return ref[0]?.getName();
 }
