@@ -10,7 +10,11 @@ import {
   productVariantsToImages,
 } from "./db/schema";
 import { handleError, OperationalError, ProductErrorCodes } from "./lib/errors";
-import { addProductSchema, updateProductSchema } from "./types/products.type";
+import {
+  addProductSchema,
+  deleteProductParamSchema,
+  updateProductSchema,
+} from "./types/products.type";
 
 import type { Store } from "./Store";
 import type z from "zod";
@@ -595,10 +599,12 @@ export class Products {
     }
   }
 
-  async deleteProduct(id: string) {
+  async deleteProduct(id: z.infer<typeof deleteProductParamSchema>) {
     try {
+      const validatedId = deleteProductParamSchema.parse(id);
+
       const product = await this.store.db.query.products.findFirst({
-        where: { id },
+        where: { id: validatedId },
         with: {
           variants: {
             columns: {},
@@ -619,7 +625,7 @@ export class Products {
       const imagesToDelete = product.variants.flatMap((el) => el.images);
 
       await this.store.db.transaction(async (tx) => {
-        await tx.delete(products).where(eq(products.id, id));
+        await tx.delete(products).where(eq(products.id, validatedId));
 
         await tx.delete(images).where(
           inArray(

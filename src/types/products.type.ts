@@ -143,3 +143,5 @@ export const updateProductSchema = z
       });
     }
   });
+
+export const deleteProductParamSchema = z.uuid();
