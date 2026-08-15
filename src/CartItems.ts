@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { cartItems } from "./db/schema";
 import {
   CartItemErrorsCodes,
@@ -12,6 +12,7 @@ import {
   addCartItemSchema,
   cartItemQuantityschema,
   importCartItemsSchema,
+  removeCartItemParamSchema,
   userIdSchema,
 } from "./types/cartItems.type";
 
@@ -57,11 +58,13 @@ export class CartItems {
     }
   }
 
-  async removeItem(id: string) {
+  async removeItem(id: z.infer<typeof removeCartItemParamSchema>) {
     try {
+      const validatedId = removeCartItemParamSchema.parse(id);
+
       const [item] = await this.store.db
         .delete(cartItems)
-        .where(eq(cartItems.id, id))
+        .where(eq(cartItems.id, validatedId))
         .returning();
 
       if (!item) {
@@ -70,21 +73,19 @@ export class CartItems {
           message: `Removing cart item failed because it does not exist`,
         });
       }
-
-      return item;
     } catch (e) {
       handleError(e);
     }
   }
 
-  async updateQuantity(
-    id: string,
-    quantity: z.infer<typeof cartItemQuantityschema>,
-  ) {
+  async updateQuantity(params: {
+    id: string;
+    quantity: z.infer<typeof cartItemQuantityschema>;
+  }) {
     try {
-      const data = cartItemQuantityschema.parse(quantity);
+      const { id, quantity } = cartItemQuantityschema.parse(params);
 
-      const item = await this.store.db.transaction(async (tx) => {
+      await this.store.db.transaction(async (tx) => {
         const cartItem = await tx.query.cartItems.findFirst({
           where: { id },
           with: { variant: true },
@@ -97,39 +98,31 @@ export class CartItems {
           });
         }
 
-        if (data > cartItem.variant.quantity) {
+        if (quantity > cartItem.variant.quantity) {
           throw new OperationalError({
             code: CartItemErrorsCodes.CartItemNotFound,
             message: `Updating cart item quantity failed because the quantity was more than the stock`,
           });
         }
 
-        const [updatedItem] = await tx
-          .update(cartItems)
-          .set({ quantity: data })
-          .where(eq(cartItems.id, id))
-          .returning();
-
-        return updatedItem;
+        await tx.update(cartItems).set({ quantity }).where(eq(cartItems.id, id));
       });
-
-      return item;
     } catch (e) {
       handleError(e);
     }
   }
 
-  async importItems(
-    userId: z.infer<typeof userIdSchema>,
-    items: z.infer<typeof importCartItemsSchema>,
-  ) {
+  async importItems(params: {
+    userId: z.infer<typeof userIdSchema>;
+    items: z.infer<typeof importCartItemsSchema>;
+  }) {
     try {
-      const data = importCartItemsSchema.parse(items);
+      const { items, userId } = importCartItemsSchema.parse(params);
 
       const newItems = await this.store.db
         .insert(cartItems)
         .values(
-          data.map((el) => ({
+          items.map((el) => ({
             userId,
             productId: el.productId,
             quantity: el.quantity,
