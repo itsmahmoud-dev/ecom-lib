@@ -8,11 +8,17 @@ export const productVariantsToImages = snakeCase.table(
     productVariantId: t
       .uuid()
       .notNull()
-      .references(() => productVariants.id, { onDelete: "cascade" }),
+      .references(() => productVariants.id, {
+        onDelete: "cascade",
+        name: "productVariantsToImages_productVariantId_fkey",
+      }),
     imageId: t
       .uuid()
       .notNull()
-      .references(() => images.id, { onDelete: "cascade" }),
+      .references(() => images.id, {
+        onDelete: "cascade",
+        name: "productVariantsToImages_imageId_fkey",
+      }),
   }),
   (t) => [primaryKey({ columns: [t.productVariantId, t.imageId] })],
 );

@@ -7,7 +7,10 @@ export const productVariants = snakeCase.table("productVariant", (t) => ({
   productId: t
     .uuid()
     .notNull()
-    .references(() => products.id, { onDelete: "cascade" }),
+    .references(() => products.id, {
+      onDelete: "cascade",
+      name: "productVariants_productId_fkey",
+    }),
 
   price: t.numeric({ mode: "number" }).notNull(),
 

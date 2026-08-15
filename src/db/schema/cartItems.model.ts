@@ -12,17 +12,26 @@ export const cartItems = snakeCase.table(
     userId: t
       .uuid()
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, {
+        onDelete: "cascade",
+        name: "cartItems_userId_fkey",
+      }),
 
     productId: t
       .uuid()
       .notNull()
-      .references(() => products.id, { onDelete: "cascade" }),
+      .references(() => products.id, {
+        onDelete: "cascade",
+        name: "cartItems_productId_fkey",
+      }),
 
     variantId: t
       .uuid()
       .notNull()
-      .references(() => productVariants.id, { onDelete: "cascade" }),
+      .references(() => productVariants.id, {
+        onDelete: "cascade",
+        name: "cartItems_variantId_fkey",
+      }),
 
     quantity: t.integer().notNull().default(1),
 

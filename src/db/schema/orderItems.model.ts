@@ -9,17 +9,26 @@ export const orderItems = snakeCase.table("orderItems", (t) => ({
   orderId: t
     .uuid()
     .notNull()
-    .references(() => orders.id, { onDelete: "cascade" }),
+    .references(() => orders.id, {
+      onDelete: "cascade",
+      name: "orderItems_orderId_fkey",
+    }),
 
   productId: t
     .uuid()
     .notNull()
-    .references(() => products.id, { onDelete: "set null" }),
+    .references(() => products.id, {
+      onDelete: "set null",
+      name: "orderItems_productId_fkey",
+    }),
 
   variantId: t
     .uuid()
     .notNull()
-    .references(() => productVariants.id, { onDelete: "set null" }),
+    .references(() => productVariants.id, {
+      onDelete: "set null",
+      name: "orderItems_variantId_fkey",
+    }),
 
   quantity: t.integer().notNull().default(1),
 

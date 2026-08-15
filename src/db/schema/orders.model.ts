@@ -16,12 +16,18 @@ export const orders = snakeCase.table("orders", (t) => ({
   userId: t
     .uuid()
     .notNull()
-    .references(() => users.id, { onDelete: "set null" }),
+    .references(() => users.id, {
+      onDelete: "set null",
+      name: "orders_userId_fkey",
+    }),
 
   addressId: t
     .uuid()
     .notNull()
-    .references(() => addresses.id, { onDelete: "set null" }),
+    .references(() => addresses.id, {
+      onDelete: "set null",
+      name: "orders_addressId_fkey",
+    }),
 
   status: orderStatus().notNull().default("pending"),
 

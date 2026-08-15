@@ -8,11 +8,17 @@ export const imagesToAttributes = snakeCase.table(
     imageId: t
       .uuid()
       .notNull()
-      .references(() => images.id, { onDelete: "cascade" }),
+      .references(() => images.id, {
+        onDelete: "cascade",
+        name: "imagesToAttributes_imageId_fkey",
+      }),
     attributeId: t
       .uuid()
       .notNull()
-      .references(() => attributes.id, { onDelete: "cascade" }),
+      .references(() => attributes.id, {
+        onDelete: "cascade",
+        name: "imagesToAttributes_attributeId_fkey",
+      }),
     key: t.text().notNull(),
   }),
   (t) => [primaryKey({ columns: [t.imageId, t.attributeId] })],

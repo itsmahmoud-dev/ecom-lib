@@ -8,12 +8,17 @@ export const inCollection = snakeCase.table(
     productId: t
       .uuid()
       .notNull()
-      .references(() => products.id, { onDelete: "cascade" }),
-
+      .references(() => products.id, {
+        onDelete: "cascade",
+        name: "inCollection_productId_fkey",
+      }),
     collectionId: t
       .uuid()
       .notNull()
-      .references(() => collections.id, { onDelete: "cascade" }),
+      .references(() => collections.id, {
+        onDelete: "cascade",
+        name: "inCollection_collectionId_fkey",
+      }),
   }),
   (t) => [primaryKey({ columns: [t.productId, t.collectionId] })],
 );

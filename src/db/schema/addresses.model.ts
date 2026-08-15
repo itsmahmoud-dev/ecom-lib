@@ -9,6 +9,7 @@ export const addresses = snakeCase.table("addresses", (t) => ({
     .notNull()
     .references(() => users.id, {
       onDelete: "cascade",
+      name: "addresses_userId_fkey",
     }),
 
   name: t.text().notNull(),

@@ -20,9 +20,10 @@ export const attributes = snakeCase.table(
 
     value: t.text().notNull(),
 
-    parentId: t
-      .uuid()
-      .references((): AnyPgColumn => attributes.id, { onDelete: "set null" }),
+    parentId: t.uuid().references((): AnyPgColumn => attributes.id, {
+      onDelete: "set null",
+      name: "attributes_parentId_fkey",
+    }),
 
     target: attributeTargetEnum().notNull().default("both"),
 
