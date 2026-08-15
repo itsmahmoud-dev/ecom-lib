@@ -22,20 +22,41 @@ export class Collections {
     this.store = store;
   }
 
-  async addCollection(name: z.infer<typeof addCollectionParamSchema>) {
+  async addCollection(params: z.infer<typeof addCollectionParamSchema>) {
     try {
-      const validatedName = addCollectionParamSchema.parse(name);
+      const { name, productIds } = addCollectionParamSchema.parse(params);
+      const collectionId = crypto.randomUUID();
 
-      const [collection] = await this.store.db
-        .insert(collections)
-        .values({ name: validatedName })
-        .returning();
+      await this.store.db.transaction(async (tx) => {
+        const [collection] = await tx
+          .insert(collections)
+          .values({ name, id: collectionId })
+          .returning();
 
-      if (!collection) {
-        throw new Error("Error inserting collection");
-      }
+        if (!collection) {
+          throw new Error("Error inserting collection");
+        }
 
-      return collection;
+        await tx
+          .insert(inCollection)
+          .values(
+            productIds.map((el) => ({
+              collectionId: collection.id,
+              productId: el,
+            })),
+          )
+          .returning();
+      });
+
+      return await this.store.db.query.collections.findFirst({
+        where: { id: collectionId },
+        with: {
+          products: {
+            columns: { name: true },
+            with: { variants: { columns: {}, with: { images: true } } },
+          },
+        },
+      });
     } catch (e) {
       handleError(e);
     }
@@ -43,65 +64,34 @@ export class Collections {
 
   async updateCollection(params: z.infer<typeof updateCollectionParamsSchema>) {
     try {
-      const data = updateCollectionParamsSchema.parse(params);
+      const { name, productsToAdd, productsToRemove, id } =
+        updateCollectionParamsSchema.parse(params);
 
-      const [collection] = await this.store.db
-        .update(collections)
-        .set({ name: data.name })
-        .where(eq(collections.id, data.id))
-        .returning();
+      await this.store.db.transaction(async (tx) => {
+        await tx
+          .update(collections)
+          .set({ name: name })
+          .where(eq(collections.id, id));
 
-      if (!collection) {
-        throw new OperationalError({
-          code: CollectionErrorCodes.CollectionNotFound,
-          message: "Updating collection failed because it does not exist",
-        });
-      }
-    } catch (e) {
-      handleError(e);
-    }
-  }
+        if (productsToAdd?.length) {
+          await tx
+            .insert(inCollection)
+            .values(
+              productsToAdd.map((el) => ({ collectionId: id, productId: el })),
+            );
+        }
 
-  async addProductsToCollection(
-    params: z.infer<typeof addRemoveProductToCollectionParamsSchema>,
-  ) {
-    try {
-      const data = addRemoveProductToCollectionParamsSchema.parse(params);
-
-      const result = await this.store.db
-        .insert(inCollection)
-        .values(
-          data.productIds.map((t) => ({ collectionId: data.id, productId: t })),
-        )
-        .returning();
-
-      if (result.length !== data.productIds.length) {
-        throw new Error("Error adding some or all products to collection");
-      }
-    } catch (e) {
-      handleError(e);
-    }
-  }
-
-  async removeProductsFromCollection(
-    params: z.infer<typeof addRemoveProductToCollectionParamsSchema>,
-  ) {
-    try {
-      const data = addRemoveProductToCollectionParamsSchema.parse(params);
-
-      const result = await this.store.db
-        .delete(inCollection)
-        .where(
-          and(
-            eq(inCollection.collectionId, data.id),
-            inArray(inCollection.productId, data.productIds),
-          ),
-        )
-        .returning();
-
-      if (result.length !== data.productIds.length) {
-        throw new Error("Error deleting some or all inCollection rows");
-      }
+        if (productsToRemove?.length) {
+          await tx
+            .delete(inCollection)
+            .where(
+              and(
+                eq(inCollection.collectionId, id),
+                inArray(inCollection.productId, productsToRemove),
+              ),
+            );
+        }
+      });
     } catch (e) {
       handleError(e);
     }
