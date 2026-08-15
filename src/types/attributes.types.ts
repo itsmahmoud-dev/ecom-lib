@@ -1,7 +1,9 @@
 import z from "zod";
 import { attributes } from "../db/schema";
 
-export const addAttributeSchema = z.strictObject({
+export const attributeIdSchema = z.uuid();
+
+export const addAttributeParamSchema = z.strictObject({
   key: z.string(),
   value: z.string(),
   parentId: z.uuid().nullish(),
@@ -9,3 +11,5 @@ export const addAttributeSchema = z.strictObject({
   type: z.enum(attributes.type.enumValues).optional(),
   formatting: z.string().nullish(),
 });
+
+export const removeAttributeParamSchema = attributeIdSchema;

@@ -9,7 +9,10 @@ import {
 
 import type { Store } from "./Store";
 import type z from "zod";
-import { addAttributeSchema } from "./types/attributes.types";
+import {
+  addAttributeParamSchema,
+  removeAttributeParamSchema,
+} from "./types/attributes.types";
 
 export class Attributes {
   store: Store;
@@ -35,9 +38,9 @@ export class Attributes {
     });
   }
 
-  async addAttribute(params: z.infer<typeof addAttributeSchema>) {
+  async addAttribute(params: z.infer<typeof addAttributeParamSchema>) {
     try {
-      const data = addAttributeSchema.parse(params);
+      const data = addAttributeParamSchema.parse(params);
 
       const [attr] = await this.store.db
         .insert(attributes)
@@ -54,17 +57,23 @@ export class Attributes {
     }
   }
 
-  async removeAttribute(id: string) {
-    const [attr] = await this.store.db
-      .delete(attributes)
-      .where(eq(attributes.id, id))
-      .returning();
+  async removeAttribute(id: z.infer<typeof removeAttributeParamSchema>) {
+    try {
+      const validatedId = removeAttributeParamSchema.parse(id);
 
-    if (!attr) {
-      throw new OperationalError({
-        code: AttributeErrorCodes.AttributeNotFound,
-        message: `Removing an attribute failed because it does not exist`,
-      });
+      const [attr] = await this.store.db
+        .delete(attributes)
+        .where(eq(attributes.id, validatedId))
+        .returning();
+
+      if (!attr) {
+        throw new OperationalError({
+          code: AttributeErrorCodes.AttributeNotFound,
+          message: `Removing an attribute failed because it does not exist`,
+        });
+      }
+    } catch (e) {
+      handleError(e);
     }
   }
 }
