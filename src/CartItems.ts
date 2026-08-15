@@ -89,12 +89,12 @@ export class CartItems {
       const data = cartItemQuantityschema.parse(quantity);
 
       const item = await this.store.db.transaction(async (tx) => {
-        const item = await tx.query.cartItems.findFirst({
+        const cartItem = await tx.query.cartItems.findFirst({
           where: { id },
           with: { variant: true },
         });
 
-        if (!item) {
+        if (!cartItem) {
           throw new OperationalError({
             code: CartItemErrorsCodes.CartItemNotFound,
             severity: "warning",
@@ -105,7 +105,7 @@ export class CartItems {
           });
         }
 
-        if (data > item.variant.quantity) {
+        if (data > cartItem.variant.quantity) {
           throw new OperationalError({
             code: CartItemErrorsCodes.CartItemNotFound,
             severity: "info",
@@ -116,10 +116,11 @@ export class CartItems {
           });
         }
 
-        const updatedItem = await tx
+        const [updatedItem] = await tx
           .update(cartItems)
           .set({ quantity: data })
-          .where(eq(cartItems.id, id));
+          .where(eq(cartItems.id, id))
+          .returning();
 
         return updatedItem;
       });
