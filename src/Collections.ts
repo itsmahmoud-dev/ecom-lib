@@ -1,8 +1,8 @@
 import * as z from "zod";
 import {
   addCollectionParamSchema,
-  updateCollectionParamSchema,
-  addRemoveProductToCollectionParamSchema,
+  updateCollectionParamsSchema,
+  addRemoveProductToCollectionParamsSchema,
   deleteCollectionParamSchema,
 } from "./types/collections.type";
 import {
@@ -24,11 +24,11 @@ export class Collections {
 
   async addCollection(name: z.infer<typeof addCollectionParamSchema>) {
     try {
-      const data = addCollectionParamSchema.parse(name);
+      const validatedName = addCollectionParamSchema.parse(name);
 
       const [collection] = await this.store.db
         .insert(collections)
-        .values({ name: data })
+        .values({ name: validatedName })
         .returning();
 
       if (!collection) {
@@ -41,9 +41,9 @@ export class Collections {
     }
   }
 
-  async updateCollection(params: z.infer<typeof updateCollectionParamSchema>) {
+  async updateCollection(params: z.infer<typeof updateCollectionParamsSchema>) {
     try {
-      const data = updateCollectionParamSchema.parse(params);
+      const data = updateCollectionParamsSchema.parse(params);
 
       const [collection] = await this.store.db
         .update(collections)
@@ -57,18 +57,16 @@ export class Collections {
           message: "Updating collection failed because it does not exist",
         });
       }
-
-      return collection;
     } catch (e) {
       handleError(e);
     }
   }
 
   async addProductsToCollection(
-    params: z.infer<typeof addRemoveProductToCollectionParamSchema>,
+    params: z.infer<typeof addRemoveProductToCollectionParamsSchema>,
   ) {
     try {
-      const data = addRemoveProductToCollectionParamSchema.parse(params);
+      const data = addRemoveProductToCollectionParamsSchema.parse(params);
 
       const result = await this.store.db
         .insert(inCollection)
@@ -86,10 +84,10 @@ export class Collections {
   }
 
   async removeProductsFromCollection(
-    params: z.infer<typeof addRemoveProductToCollectionParamSchema>,
+    params: z.infer<typeof addRemoveProductToCollectionParamsSchema>,
   ) {
     try {
-      const data = addRemoveProductToCollectionParamSchema.parse(params);
+      const data = addRemoveProductToCollectionParamsSchema.parse(params);
 
       const result = await this.store.db
         .delete(inCollection)

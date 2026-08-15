@@ -6,17 +6,17 @@ export const productIds = z.array(z.uuid()).min(1);
 
 export const addCollectionParamSchema = z.string();
 
-export const updateCollectionParamSchema = z.strictObject({
+export const updateCollectionParamsSchema = z.strictObject({
   id: collectionId,
   name: addCollectionParamSchema,
 });
 
-export const addRemoveProductToCollectionParamSchema = z.strictObject({
+export const addRemoveProductToCollectionParamsSchema = z.strictObject({
   id: collectionId,
   productIds,
 });
 
-export const removeProductFromCollectionParamSchema = z.strictObject({
+export const removeProductFromCollectionParamsSchema = z.strictObject({
   id: collectionId,
   productIds,
 });
