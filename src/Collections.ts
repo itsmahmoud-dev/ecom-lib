@@ -2,7 +2,6 @@ import * as z from "zod";
 import {
   addCollectionParamSchema,
   updateCollectionParamsSchema,
-  addRemoveProductToCollectionParamsSchema,
   deleteCollectionParamSchema,
 } from "./types/collections.type";
 import {
