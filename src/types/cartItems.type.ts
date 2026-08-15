@@ -8,25 +8,25 @@ export const variantIdSchema = z.uuid();
 
 export const cartItemIdSchema = z.uuid();
 
-export const addCartItemSchema = z.strictObject({
+export const addCartItemParamsSchema = z.strictObject({
   userId: userIdSchema,
   productId: productIdSchema,
   variantId: variantIdSchema,
 });
 
-export const cartItemQuantityschema = z.strictObject({
+export const updateCartItemQuantityParamsSchema = z.strictObject({
   id: cartItemIdSchema,
   quantity: z.int().positive(),
 });
 
-export const importCartItemsSchema = z.strictObject({
+export const importCartItemsParamsSchema = z.strictObject({
   userId: userIdSchema,
   items: z
     .array(
       z.strictObject({
         productId: productIdSchema,
         variantId: variantIdSchema,
-        quantity: cartItemQuantityschema.shape.quantity,
+        quantity: updateCartItemQuantityParamsSchema.shape.quantity,
       }),
     )
     .min(1),

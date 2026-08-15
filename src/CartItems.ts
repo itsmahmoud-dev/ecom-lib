@@ -9,9 +9,9 @@ import {
 import type { Store } from "./Store";
 import type z from "zod";
 import {
-  addCartItemSchema,
-  cartItemQuantityschema,
-  importCartItemsSchema,
+  addCartItemParamsSchema,
+  updateCartItemQuantityParamsSchema,
+  importCartItemsParamsSchema,
   removeCartItemParamSchema,
   userIdSchema,
 } from "./types/cartItems.type";
@@ -39,9 +39,9 @@ export class CartItems {
     });
   }
 
-  async addCartItem(params: z.infer<typeof addCartItemSchema>) {
+  async addCartItem(params: z.infer<typeof addCartItemParamsSchema>) {
     try {
-      const data = addCartItemSchema.parse({ ...params });
+      const data = addCartItemParamsSchema.parse({ ...params });
 
       const item = await this.store.db
         .insert(cartItems)
@@ -80,10 +80,10 @@ export class CartItems {
 
   async updateQuantity(params: {
     id: string;
-    quantity: z.infer<typeof cartItemQuantityschema>;
+    quantity: z.infer<typeof updateCartItemQuantityParamsSchema>;
   }) {
     try {
-      const { id, quantity } = cartItemQuantityschema.parse(params);
+      const { id, quantity } = updateCartItemQuantityParamsSchema.parse(params);
 
       await this.store.db.transaction(async (tx) => {
         const cartItem = await tx.query.cartItems.findFirst({
@@ -114,10 +114,10 @@ export class CartItems {
 
   async importItems(params: {
     userId: z.infer<typeof userIdSchema>;
-    items: z.infer<typeof importCartItemsSchema>;
+    items: z.infer<typeof importCartItemsParamsSchema>;
   }) {
     try {
-      const { items, userId } = importCartItemsSchema.parse(params);
+      const { items, userId } = importCartItemsParamsSchema.parse(params);
 
       const newItems = await this.store.db
         .insert(cartItems)
