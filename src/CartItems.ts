@@ -105,7 +105,7 @@ export class CartItems {
           });
         }
 
-        if (item.quantity + data > item.variant.quantity) {
+        if (data > item.variant.quantity) {
           throw new OperationalError({
             code: CartItemErrorsCodes.CartItemNotFound,
             severity: "info",
@@ -118,7 +118,7 @@ export class CartItems {
 
         const updatedItem = await tx
           .update(cartItems)
-          .set({ quantity: sql`${cartItems.quantity} + ${data}` })
+          .set({ quantity: data })
           .where(eq(cartItems.id, id));
 
         return updatedItem;
