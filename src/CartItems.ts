@@ -42,17 +42,11 @@ export class CartItems {
   async addCartItem(params: z.infer<typeof addCartItemParamsSchema>) {
     try {
       const data = addCartItemParamsSchema.parse({ ...params });
+      const itemId = crypto.randomUUID();
 
-      const item = await this.store.db
-        .insert(cartItems)
-        .values({ ...data })
-        .returning();
+      await this.store.db.insert(cartItems).values({ id: itemId, ...data });
 
-      if (!item) {
-        throw new Error("Error inserting a cart item");
-      }
-
-      return item;
+      return itemId;
     } catch (e) {
       handleError(e);
     }
@@ -62,17 +56,7 @@ export class CartItems {
     try {
       const validatedId = removeCartItemParamSchema.parse(id);
 
-      const [item] = await this.store.db
-        .delete(cartItems)
-        .where(eq(cartItems.id, validatedId))
-        .returning();
-
-      if (!item) {
-        throw new OperationalError({
-          code: CartItemErrorsCodes.CartItemNotFound,
-          message: `Removing cart item failed because it does not exist`,
-        });
-      }
+      await this.store.db.delete(cartItems).where(eq(cartItems.id, validatedId));
     } catch (e) {
       handleError(e);
     }
@@ -118,20 +102,22 @@ export class CartItems {
   }) {
     try {
       const { items, userId } = importCartItemsParamsSchema.parse(params);
+      const itemsWithIds = items.map((item) => ({
+        id: crypto.randomUUID(),
+        ...item,
+      }));
 
-      const newItems = await this.store.db
-        .insert(cartItems)
-        .values(
-          items.map((el) => ({
-            userId,
-            productId: el.productId,
-            quantity: el.quantity,
-            variantId: el.variantId,
-          })),
-        )
-        .returning();
+      await this.store.db.insert(cartItems).values(
+        itemsWithIds.map((el) => ({
+          id: el.id,
+          userId,
+          productId: el.productId,
+          quantity: el.quantity,
+          variantId: el.variantId,
+        })),
+      );
 
-      return newItems;
+      return itemsWithIds.map((el) => el.id);
     } catch (e) {
       handleError(e);
     }
