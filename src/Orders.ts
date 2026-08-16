@@ -8,6 +8,11 @@ import {
   UserErrorCodes,
 } from "./lib/errors";
 import { Store } from "./Store";
+import type z from "zod";
+import {
+  placeOrderParamsSchema,
+  updateOrderStatusParamsSchema,
+} from "./types/orders.types";
 
 export class Order {
   store: Store;
@@ -27,18 +32,10 @@ export class Order {
     });
   }
 
-  async placeOrder(userId: string, addressId: string) {
+  async placeOrder(params: z.infer<typeof placeOrderParamsSchema>) {
     try {
-      const user = await this.store.db.query.users.findFirst({
-        where: { id: userId },
-      });
-
-      if (!user) {
-        throw new OperationalError({
-          code: UserErrorCodes.UserNotFound,
-          message: "Placing an order failed because the user does not exist",
-        });
-      }
+      const { userId, addressId } = placeOrderParamsSchema.parse(params);
+      const orderId = crypto.randomUUID();
 
       const cartItems = await this.store.db.query.cartItems.findMany({
         where: { userId },
@@ -62,7 +59,7 @@ export class Order {
         });
       }
 
-      const order = await this.store.db.transaction(async (tx) => {
+      await this.store.db.transaction(async (tx) => {
         const variantQuantityUpdateSQLChunks: SQL[] = [];
         const variantQuantityUpdateIds: string[] = [];
 
@@ -75,7 +72,6 @@ export class Order {
               code: OrderErrorCodes.QuantityNotEnough,
               message:
                 "Placing an order failed because one of the items' quantity was more than the available stock",
-              //TODO: COMPLETE DATA
             });
           }
 
@@ -92,46 +88,31 @@ export class Order {
           })
           .where(inArray(productVariants.id, variantQuantityUpdateIds));
 
-        const [order] = await tx
-          .insert(orders)
-          .values({ userId, addressId })
-          .returning();
+        await tx.insert(orders).values({ id: orderId, userId, addressId });
 
-        if (!order) {
-          throw new Error("Error inserting an order");
-        }
-
-        const items = await tx
-          .insert(orderItems)
-          .values(
-            cartItems.map((el) => ({
-              orderId: order!.id,
-              productId: el.productId,
-              price: el.variant!.price,
-              variantId: el.variantId,
-              quantity: el.quantity,
-            })),
-          )
-          .returning();
-
-        if (items.length !== cartItems.length) {
-          throw new Error("Error inserting cart items");
-        }
-
-        return { ...order, items };
+        await tx.insert(orderItems).values(
+          cartItems.map((el) => ({
+            orderId,
+            productId: el.productId,
+            variantId: el.variantId,
+            price: el.variant.price,
+            quantity: el.quantity,
+          })),
+        );
       });
 
-      return order;
+      return orderId;
     } catch (e) {
       handleError(e);
     }
   }
 
   async updateOrderStatus(
-    id: string,
-    status: (typeof orders.status.enumValues)[number],
+    params: z.infer<typeof updateOrderStatusParamsSchema>,
   ) {
     try {
+      const { id, status } = updateOrderStatusParamsSchema.parse(params);
+
       const order = await this.store.db.query.orders.findFirst({
         where: { id },
         with: {
@@ -163,12 +144,8 @@ export class Order {
         });
       }
 
-      const updatedOrder = await this.store.db.transaction(async (tx) => {
-        const [updatedOrder] = await tx
-          .update(orders)
-          .set({ status })
-          .where(eq(orders.id, id))
-          .returning();
+      await this.store.db.transaction(async (tx) => {
+        await tx.update(orders).set({ status }).where(eq(orders.id, id));
 
         if (status === "canceled") {
           const variantQuantityUpdateSQLChunks: SQL[] = [];
@@ -190,11 +167,7 @@ export class Order {
               inArray(productVariants.id, variantQuantityUpdateSQLConditions),
             );
         }
-
-        return updatedOrder;
       });
-
-      return updatedOrder;
     } catch (e) {
       handleError(e);
     }
