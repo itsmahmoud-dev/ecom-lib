@@ -27,35 +27,17 @@ export class Collections {
       const collectionId = crypto.randomUUID();
 
       await this.store.db.transaction(async (tx) => {
-        const [collection] = await tx
-          .insert(collections)
-          .values({ name, id: collectionId })
-          .returning();
+        await tx.insert(collections).values({ id: collectionId, name });
 
-        if (!collection) {
-          throw new Error("Error inserting collection");
-        }
-
-        await tx
-          .insert(inCollection)
-          .values(
-            productIds.map((el) => ({
-              collectionId: collection.id,
-              productId: el,
-            })),
-          )
-          .returning();
+        await tx.insert(inCollection).values(
+          productIds.map((el) => ({
+            collectionId,
+            productId: el,
+          })),
+        );
       });
 
-      return await this.store.db.query.collections.findFirst({
-        where: { id: collectionId },
-        with: {
-          products: {
-            columns: { name: true },
-            with: { variants: { columns: {}, with: { images: true } } },
-          },
-        },
-      });
+      return collectionId;
     } catch (e) {
       handleError(e);
     }
@@ -100,17 +82,7 @@ export class Collections {
     try {
       const data = deleteCollectionParamSchema.parse(id);
 
-      const [collection] = await this.store.db
-        .delete(collections)
-        .where(eq(collections.id, data))
-        .returning();
-
-      if (!collection) {
-        throw new OperationalError({
-          code: CollectionErrorCodes.CollectionNotFound,
-          message: "Removing collection failed because it does not exist",
-        });
-      }
+      await this.store.db.delete(collections).where(eq(collections.id, data));
     } catch (e) {
       handleError(e);
     }
