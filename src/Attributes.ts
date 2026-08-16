@@ -41,17 +41,11 @@ export class Attributes {
   async addAttribute(params: z.infer<typeof addAttributeParamSchema>) {
     try {
       const data = addAttributeParamSchema.parse(params);
+      const attrId = crypto.randomUUID();
 
-      const [attr] = await this.store.db
-        .insert(attributes)
-        .values({ ...data })
-        .returning();
+      await this.store.db.insert(attributes).values({ id: attrId, ...data });
 
-      if (!attr) {
-        throw new Error("Error inserting an attribute");
-      }
-
-      return attr;
+      return attrId;
     } catch (e) {
       handleError(e);
     }
@@ -61,17 +55,9 @@ export class Attributes {
     try {
       const validatedId = removeAttributeParamSchema.parse(id);
 
-      const [attr] = await this.store.db
+      await this.store.db
         .delete(attributes)
-        .where(eq(attributes.id, validatedId))
-        .returning();
-
-      if (!attr) {
-        throw new OperationalError({
-          code: AttributeErrorCodes.AttributeNotFound,
-          message: `Removing an attribute failed because it does not exist`,
-        });
-      }
+        .where(eq(attributes.id, validatedId));
     } catch (e) {
       handleError(e);
     }
