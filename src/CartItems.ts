@@ -4,7 +4,7 @@ import {
   CartItemErrorsCodes,
   handleError,
   OperationalError,
-} from "./lib/errors";
+} from "./utils/errors";
 
 import type { Store } from "./Store";
 import type z from "zod";

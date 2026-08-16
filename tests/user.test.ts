@@ -1,10 +1,10 @@
 import { afterAll, expect, test } from "bun:test";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
-import { OperationalError } from "../src/lib/errors";
-import { UserErrorCodes } from "../src/lib/errors";
+import { OperationalError } from "../src/utils/errors";
+import { UserErrorCodes } from "../src/utils/errors";
 import { users } from "../src/db/schema";
-import { verifyPassword, hashPassword } from "../src/lib/string";
+import { verifyPassword, hashPassword } from "../src/utils/string";
 
 test("Get user by id", async () => {
   const [user] = await store.db

@@ -1,8 +1,8 @@
 import { afterAll, expect, test } from "bun:test";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
-import { OperationalError } from "../src/lib/errors";
-import { AttributeErrorCodes } from "../src/lib/errors";
+import { OperationalError } from "../src/utils/errors";
+import { AttributeErrorCodes } from "../src/utils/errors";
 import { attributes } from "../src/db/schema";
 
 test("Get attributes by key", async () => {

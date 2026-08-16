@@ -5,7 +5,7 @@ import {
   OperationalError,
   CollectionErrorCodes,
   ProductErrorCodes,
-} from "../src/lib/errors";
+} from "../src/utils/errors";
 import { collections, inCollection, products } from "../src/db/schema";
 
 async function makeProduct() {

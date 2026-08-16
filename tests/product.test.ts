@@ -12,7 +12,7 @@ import {
   productVariantsToAttributes,
   productVariantsToImages,
 } from "../src/db/schema";
-import { AttributeErrorCodes, ProductErrorCodes } from "../src/lib/errors";
+import { AttributeErrorCodes, ProductErrorCodes } from "../src/utils/errors";
 import type z from "zod";
 import type { updateProductSchema } from "../src/types/products.type";
 

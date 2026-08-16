@@ -9,7 +9,11 @@ import {
   productVariantsToAttributes,
   productVariantsToImages,
 } from "./db/schema";
-import { handleError, OperationalError, ProductErrorCodes } from "./lib/errors";
+import {
+  handleError,
+  OperationalError,
+  ProductErrorCodes,
+} from "./utils/errors";
 import {
   addProductSchema,
   deleteProductParamSchema,

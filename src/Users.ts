@@ -2,9 +2,9 @@ import crypto from "crypto";
 import { sign } from "jsonwebtoken";
 import { eq, sql } from "drizzle-orm";
 
-import { UserErrorCodes, handleError, OperationalError } from "./lib/errors";
+import { UserErrorCodes, handleError, OperationalError } from "./utils/errors";
 import { addresses, users } from "./db/schema";
-import { hashPassword, verifyPassword } from "./lib/string";
+import { hashPassword, verifyPassword } from "./utils/string";
 
 import type { Store } from "./Store";
 

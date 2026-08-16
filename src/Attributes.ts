@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { attributes } from "./db/schema/attributes.model";
-import { handleError } from "./lib/errors";
+import { handleError } from "./utils/errors";
 
 import type { Store } from "./Store";
 import type z from "zod";
