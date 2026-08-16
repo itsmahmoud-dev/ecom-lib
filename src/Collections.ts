@@ -4,11 +4,7 @@ import {
   updateCollectionParamsSchema,
   deleteCollectionParamSchema,
 } from "./types/collections.type";
-import {
-  CollectionErrorCodes,
-  handleError,
-  OperationalError,
-} from "./lib/errors";
+import { handleError } from "./lib/errors";
 import { collections, inCollection } from "./db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 

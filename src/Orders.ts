@@ -1,12 +1,7 @@
 import { eq, inArray, sql, SQL } from "drizzle-orm";
 import { orderItems } from "./db/schema";
 import { orders, productVariants } from "./db/schema";
-import {
-  handleError,
-  OperationalError,
-  OrderErrorCodes,
-  UserErrorCodes,
-} from "./lib/errors";
+import { handleError, OperationalError, OrderErrorCodes } from "./lib/errors";
 import { Store } from "./Store";
 import type z from "zod";
 import {

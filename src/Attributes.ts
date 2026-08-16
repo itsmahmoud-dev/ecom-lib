@@ -1,11 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { attributes } from "./db/schema/attributes.model";
-import {
-  AttributeErrorCodes,
-  handleError,
-  OperationalError,
-} from "./lib/errors";
+import { handleError } from "./lib/errors";
 
 import type { Store } from "./Store";
 import type z from "zod";
@@ -21,11 +17,6 @@ export class Attributes {
     this.store = store;
   }
 
-  /**
-   * Retrieves attributes by key.
-   * @param key
-   * @returns array of attributes matching the key
-   */
   async getAttributesByKey(key: string) {
     return await this.store.db.query.attributes.findMany({
       where: { key },
