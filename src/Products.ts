@@ -137,6 +137,8 @@ export class Products {
       for (const { buffer, path } of imagesWithids) {
         await Bun.write(`${this.store.dataPath}${path}`, buffer);
       }
+
+      return productId;
     } catch (e) {
       handleError(e);
     }
@@ -513,8 +515,7 @@ export class Products {
             .set({
               attributeId: sql`(CASE ${sql.join(updateVariantsAttrSQLChunks, sql` `)} ELSE ${productVariantsToAttributes.attributeId} END)`,
             })
-            .where(or(...updateVariantAttrSQLConditions))
-            .returning();
+            .where(or(...updateVariantAttrSQLConditions));
         }
 
         // insert new images
