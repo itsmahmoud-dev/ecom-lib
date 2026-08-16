@@ -15,46 +15,6 @@ export class Users {
     this.store = store;
   }
 
-  /**
-   * Retrieves a user by their ID. Sensitive fields (password, OTPs) are excluded from the result.
-   * @param id The user's UUID
-   * @returns The user object without sensitive fields
-   * @throws {OperationalError} `U000` (`UserNotFound`) if no user exists with the given ID
-   */
-  async findByID(id: string) {
-    const user = await this.store.db.query.users.findFirst({
-      where: { id, status: "verified" },
-      columns: {
-        id: true,
-        name: true,
-        email: true,
-        phoneNumber: true,
-        role: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    if (!user) {
-      throw new OperationalError({
-        code: UserErrorCodes.UserNotFound,
-        message: "Finding user failed because it does not exist",
-      });
-    }
-
-    return user;
-  }
-
-  /**
-   * Creates a new user account with a hashed password and a verification OTP valid for 10 minutes.
-   * The caller is responsible for delivering the OTP to the user's email.
-   * @param name The user's display name
-   * @param email The user's email address
-   * @param password Plaintext password (hashed before storing)
-   * @returns `{ id, otp, name, email }` — the created user's data and the raw OTP to send via email
-   * @throws {OperationalError} `U005` (`EmailAlreadyRegistered`) if the email is already in use
-   */
   async registerUser(name: string, email: string, password: string) {
     try {
       const existingUser = await this.store.db.query.users.findFirst({
@@ -101,12 +61,6 @@ export class Users {
     }
   }
 
-  /**
-   * Verifies a user's account using the OTP sent during registration.
-   * Sets the account status to "verified" and clears the OTP on success.
-   * @param otp The 6-character hex OTP from the registration email
-   * @throws {OperationalError} `U004` (`VerificationOtpInvalidOrExpired`) if the OTP doesn't match any user or has expired
-   */
   async verifyUser(otp: string) {
     const user = await this.store.db.query.users.findFirst({
       where: { verificationOtp: otp },
@@ -144,15 +98,6 @@ export class Users {
       .where(eq(users.id, user.id));
   }
 
-  /**
-   * Authenticates a user with email and password, returning a signed JWT access token.
-   * @param email The user's email address
-   * @param password The user's plaintext password
-   * @param rememberMe When true, the token expires in 30 days instead of 1 day
-   * @returns A signed HS512 JWT access token
-   * @throws {OperationalError} `U001` (`InvalidEmailOrPassword`) if the email doesn't exist or the password is wrong
-   * @throws {OperationalError} `U003` (`AccountNotVerified`) if the user hasn't verified their account
-   */
   async logUserIn(email: string, password: string, rememberMe: boolean = false) {
     const user = await this.store.db.query.users.findFirst({
       where: {
@@ -190,13 +135,6 @@ export class Users {
     return accessToken;
   }
 
-  /**
-   * Updates the display name of a user.
-   * @param id The user's UUID
-   * @param name The new display name
-   * @returns The updated user object (without sensitive fields)
-   * @throws {OperationalError} `U000` (`UserNotFound`) if no user exists with the given ID
-   */
   async changeName(id: string, name: string) {
     const user = await this.store.db.query.users.findFirst({
       where: {
@@ -212,34 +150,9 @@ export class Users {
       });
     }
 
-    const [updatedUser] = await this.store.db
-      .update(users)
-      .set({ name })
-      .where(eq(users.id, id))
-      .returning({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        phoneNumber: users.phoneNumber,
-        role: users.role,
-        status: users.status,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      });
-
-    return updatedUser;
+    await this.store.db.update(users).set({ name }).where(eq(users.id, id));
   }
 
-  /**
-   * Generates an email change OTP for the user and saves it to their record. The OTP expires in 10 minutes.
-   * The caller is responsible for delivering the OTP to the user (e.g., via the new email).
-   * @param id The user's UUID
-   * @param newEmail The new email address the user wants to switch to
-   * @returns `{ otp, user: { name, email } }` — the raw OTP and current user details for composing the email
-   * @throws {OperationalError} `U000` (`UserNotFound`) if no user exists with the given ID
-   * @throws {OperationalError} `U009` (`SameEmail`) if the new email is the same as the current email
-   * @throws {OperationalError} `U005` (`EmailAlreadyRegistered`) if the new email is already taken
-   */
   async requestChangeEmail(id: string, newEmail: string) {
     const existingUser = await this.store.db.query.users.findFirst({
       where: {
@@ -300,19 +213,6 @@ export class Users {
     };
   }
 
-  /**
-   * Changes a user's email after verifying their OTP and current password.
-   * Rotates `accessTokenId` to invalidate all existing access tokens.
-   * @param id The user's UUID
-   * @param otp The email change OTP previously generated by `requestChangeEmail`
-   * @param newEmail The new email address to set
-   * @param password The user's current password for confirmation
-   * @returns The updated user object (without sensitive fields)
-   * @throws {OperationalError} `U000` (`UserNotFound`) if no user exists with the given ID
-   * @throws {OperationalError} `U002` (`EmailChangeOtpInvalidOrExpired`) if the OTP is missing, wrong, or has expired
-   * @throws {OperationalError} `U006` (`WrongPassword`) if the provided password is incorrect
-   * @throws {OperationalError} `U005` (`EmailAlreadyRegistered`) if the new email is already taken
-   */
   async changeEmail(
     id: string,
     otp: string,
@@ -410,15 +310,6 @@ export class Users {
     }
   }
 
-  /**
-   * Changes a user's password after verifying their current password.
-   * Rotates `accessTokenId` to invalidate all existing access tokens.
-   * @param id The user's UUID
-   * @param oldPassword The user's current password for verification
-   * @param newPassword The new password to set (hashed before storing)
-   * @throws {OperationalError} `U000` (`UserNotFound`) if no user exists with the given ID
-   * @throws {OperationalError} `U007` (`WrongCurrentPassword`) if the current password is incorrect
-   */
   async changePassword(id: string, oldPassword: string, newPassword: string) {
     const user = await this.store.db.query.users.findFirst({
       where: {
@@ -451,13 +342,6 @@ export class Users {
       .where(eq(users.id, id));
   }
 
-  /**
-   * Generates a password reset token for the user and saves it to their record. The token expires in 10 minutes.
-   * The caller is responsible for delivering the token to the user (e.g., as a link in an email).
-   * @param email The user's email address
-   * @returns `{ token, user: { name, email } }` — the raw reset token and user details for composing the email
-   * @throws {OperationalError} `U000` (`UserNotFound`) if no user exists with the given email
-   */
   async requestPasswordReset(email: string) {
     const user = await this.store.db.query.users.findFirst({
       where: {
@@ -493,13 +377,6 @@ export class Users {
     };
   }
 
-  /**
-   * Resets a user's password using a valid reset token. Clears the token and rotates `accessTokenId`
-   * to invalidate all existing access tokens.
-   * @param token The password reset token from the reset email
-   * @param newPassword The new password to set (hashed before storing)
-   * @throws {OperationalError} `U008` (`InvalidOrExpiredResetToken`) if the token doesn't match any user or has expired
-   */
   async resetPassword(token: string, newPassword: string) {
     const user = await this.store.db.query.users.findFirst({
       where: {
