@@ -12,7 +12,7 @@ import {
   productVariantsToAttributes,
   productVariantsToImages,
 } from "../src/db/schema";
-import { AttributeErrorCodes, ProductErrorCodes } from "../src/utils/errors";
+import { AlreadyExistsError, NotFoundError } from "../src/utils/errors";
 import type z from "zod";
 import type { updateProductSchema } from "../src/types/products.type";
 
@@ -301,9 +301,7 @@ describe("store.products.addProduct", () => {
         ],
       });
 
-      expect(result).rejects.toMatchObject({
-        code: ProductErrorCodes.BarcodeAlreadyExists,
-      });
+      expect(result).rejects.toThrow(AlreadyExistsError);
     });
 
     test("Product attribute that does not exist throws", async () => {
@@ -338,9 +336,7 @@ describe("store.products.addProduct", () => {
         ],
       });
 
-      expect(result).rejects.toMatchObject({
-        code: AttributeErrorCodes.AttributeNotFound,
-      });
+      expect(result).rejects.toThrow(NotFoundError);
     });
 
     test("Variant attribute that does not exist throws", async () => {
@@ -382,9 +378,7 @@ describe("store.products.addProduct", () => {
         ],
       });
 
-      expect(result).rejects.toMatchObject({
-        code: AttributeErrorCodes.AttributeNotFound,
-      });
+      expect(result).rejects.toThrow(NotFoundError);
     });
 
     test("Variant without an image throws", async () => {

@@ -1,14 +1,13 @@
 import { eq } from "drizzle-orm";
-
-import { attributes } from "./db/schema/attributes.model";
+import { attributes } from "./db/schema";
 import { handleError } from "./utils/errors";
-
-import type { Store } from "./Store";
-import type z from "zod";
+import { insertOneOrThrow, mutateOneOrThrow } from "./utils/dbHelpers";
 import {
   addAttributeParamSchema,
   removeAttributeParamSchema,
 } from "./types/attributes.types";
+import type { Store } from "./Store";
+import type z from "zod";
 
 export class Attributes {
   store: Store;
@@ -34,9 +33,15 @@ export class Attributes {
       const data = addAttributeParamSchema.parse(params);
       const attrId = crypto.randomUUID();
 
-      await this.store.db.insert(attributes).values({ id: attrId, ...data });
+      const attr = await insertOneOrThrow(
+        this.store.db
+          .insert(attributes)
+          .values({ id: attrId, ...data })
+          .returning(),
+        "attribute",
+      );
 
-      return attrId;
+      return attr;
     } catch (e) {
       handleError(e);
     }
@@ -46,9 +51,13 @@ export class Attributes {
     try {
       const validatedId = removeAttributeParamSchema.parse(id);
 
-      await this.store.db
-        .delete(attributes)
-        .where(eq(attributes.id, validatedId));
+      await mutateOneOrThrow(
+        this.store.db
+          .delete(attributes)
+          .where(eq(attributes.id, validatedId))
+          .returning(),
+        "attribute",
+      );
     } catch (e) {
       handleError(e);
     }

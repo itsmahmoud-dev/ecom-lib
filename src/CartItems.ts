@@ -1,13 +1,15 @@
 import { eq } from "drizzle-orm";
 import { cartItems } from "./db/schema";
 import {
-  CartItemErrorsCodes,
   handleError,
-  OperationalError,
+  NotFoundError,
+  QuantityInsufficientError,
 } from "./utils/errors";
-
-import type { Store } from "./Store";
-import type z from "zod";
+import {
+  insertManyOrThrow,
+  insertOneOrThrow,
+  mutateOneOrThrow,
+} from "./utils/dbHelpers";
 import {
   addCartItemParamsSchema,
   updateCartItemQuantityParamsSchema,
@@ -15,6 +17,8 @@ import {
   removeCartItemParamSchema,
   userIdSchema,
 } from "./types/cartItems.type";
+import type { Store } from "./Store";
+import type z from "zod";
 
 export class CartItems {
   store: Store;
@@ -44,9 +48,15 @@ export class CartItems {
       const data = addCartItemParamsSchema.parse({ ...params });
       const itemId = crypto.randomUUID();
 
-      await this.store.db.insert(cartItems).values({ id: itemId, ...data });
+      const item = await insertOneOrThrow(
+        this.store.db
+          .insert(cartItems)
+          .values({ id: itemId, ...data })
+          .returning(),
+        "cart item",
+      );
 
-      return itemId;
+      return item;
     } catch (e) {
       handleError(e);
     }
@@ -56,68 +66,72 @@ export class CartItems {
     try {
       const validatedId = removeCartItemParamSchema.parse(id);
 
-      await this.store.db.delete(cartItems).where(eq(cartItems.id, validatedId));
+      await mutateOneOrThrow(
+        this.store.db
+          .delete(cartItems)
+          .where(eq(cartItems.id, validatedId))
+          .returning(),
+        "cart item",
+      );
     } catch (e) {
       handleError(e);
     }
   }
 
-  async updateQuantity(params: {
-    id: string;
-    quantity: z.infer<typeof updateCartItemQuantityParamsSchema>;
-  }) {
+  async updateQuantity(
+    params: z.infer<typeof updateCartItemQuantityParamsSchema>,
+  ) {
     try {
       const { id, quantity } = updateCartItemQuantityParamsSchema.parse(params);
 
-      await this.store.db.transaction(async (tx) => {
+      const item = await this.store.db.transaction(async (tx) => {
         const cartItem = await tx.query.cartItems.findFirst({
           where: { id },
           with: { variant: true },
         });
 
-        if (!cartItem) {
-          throw new OperationalError({
-            code: CartItemErrorsCodes.CartItemNotFound,
-            message: `Updating cart item quantity failed because it does not exist`,
-          });
-        }
+        if (!cartItem) throw new NotFoundError("cart item", `id: ${id}`);
 
-        if (quantity > cartItem.variant.quantity) {
-          throw new OperationalError({
-            code: CartItemErrorsCodes.CartItemNotFound,
-            message: `Updating cart item quantity failed because the quantity was more than the stock`,
-          });
-        }
+        if (quantity > cartItem.variant.quantity)
+          throw new QuantityInsufficientError(
+            "cart item",
+            quantity,
+            cartItem.variant.quantity,
+          );
 
-        await tx.update(cartItems).set({ quantity }).where(eq(cartItems.id, id));
+        const item = await mutateOneOrThrow(
+          tx
+            .update(cartItems)
+            .set({ quantity })
+            .where(eq(cartItems.id, id))
+            .returning(),
+          "cart item",
+        );
+
+        return item;
       });
+
+      return item;
     } catch (e) {
       handleError(e);
     }
   }
 
-  async importItems(params: {
-    userId: z.infer<typeof userIdSchema>;
-    items: z.infer<typeof importCartItemsParamsSchema>;
-  }) {
+  async importItems(params: z.infer<typeof importCartItemsParamsSchema>) {
     try {
       const { items, userId } = importCartItemsParamsSchema.parse(params);
       const itemsWithIds = items.map((item) => ({
         id: crypto.randomUUID(),
+        userId,
         ...item,
       }));
 
-      await this.store.db.insert(cartItems).values(
-        itemsWithIds.map((el) => ({
-          id: el.id,
-          userId,
-          productId: el.productId,
-          quantity: el.quantity,
-          variantId: el.variantId,
-        })),
+      const newItems = await insertManyOrThrow(
+        this.store.db.insert(cartItems).values(itemsWithIds).returning(),
+        "cart items",
       );
 
-      return itemsWithIds.map((el) => el.id);
+      return newItems;
     } catch (e) {
       handleError(e);
     }

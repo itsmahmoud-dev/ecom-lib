@@ -1,12 +1,32 @@
 import crypto from "crypto";
 import { sign } from "jsonwebtoken";
-import { eq, sql } from "drizzle-orm";
-
-import { UserErrorCodes, handleError, OperationalError } from "./utils/errors";
+import { and, eq, sql } from "drizzle-orm";
+import {
+  handleError,
+  AlreadyExistsError,
+  NotFoundError,
+  CustomError,
+  CustomErrorCodes,
+} from "./utils/errors";
 import { addresses, users } from "./db/schema";
 import { hashPassword, verifyPassword } from "./utils/string";
-
+import { insertOneOrThrow, mutateOneOrThrow } from "./utils/dbHelpers";
 import type { Store } from "./Store";
+import type z from "zod";
+import {
+  addAddressParamsSchema,
+  changeEmailParamsSchema,
+  changeNameParamsSchema,
+  changePasswordParamsSchema,
+  deleteAddressParamsSchema,
+  logUserInParamsSchema,
+  registerUserParamsSchema,
+  requestChangeEmailParamsSchema,
+  requestResetPasswordParamsSchema,
+  resetPasswordParamsSchema,
+  updateAddressParamsSchema,
+  verifyUserParamsSchema,
+} from "./types/user.types";
 
 export class Users {
   store: Store;
@@ -15,294 +35,228 @@ export class Users {
     this.store = store;
   }
 
-  async registerUser(name: string, email: string, password: string) {
+  async registerUser(params: z.infer<typeof registerUserParamsSchema>) {
     try {
+      const { email, name, password } = registerUserParamsSchema.parse(params);
+
       const existingUser = await this.store.db.query.users.findFirst({
         where: { email },
       });
 
-      if (existingUser) {
-        throw new OperationalError({
-          code: UserErrorCodes.EmailAlreadyRegistered,
-          message:
-            "Registering user failed because the email they used is already in use",
-        });
-      }
+      if (existingUser) throw new AlreadyExistsError("user", `email: ${email}`);
 
-      const otp = crypto.randomBytes(3).toHex();
+      const user = await insertOneOrThrow(
+        this.store.db
+          .insert(users)
+          .values({
+            name,
+            email,
+            password: hashPassword(password),
+            verificationOtp: crypto.randomBytes(3).toHex().toUpperCase(),
+            verificationOtpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+          })
+          .returning(),
+        "user",
+      );
 
-      const [user] = await this.store.db
-        .insert(users)
-        .values({
-          name,
-          email,
-          password: hashPassword(password),
-          verificationOtp: otp,
-          verificationOtpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
-        })
-        .returning({
-          id: users.id,
-          name: users.name,
-          email: users.email,
-        });
-
-      if (!user) {
-        throw new Error("Error inserting a user");
-      }
-
-      return {
-        id: user.id,
-        otp,
-        name: user.name,
-        email: user.email,
-      };
+      return user;
     } catch (e) {
       handleError(e);
     }
   }
 
-  async verifyUser(otp: string) {
-    const user = await this.store.db.query.users.findFirst({
-      where: { verificationOtp: otp },
-    });
-
-    if (!user) {
-      throw new OperationalError({
-        code: UserErrorCodes.VerificationOtpInvalidOrExpired,
-        message: "Verifying user failed because their otp was invalid",
-      });
-    }
-
-    if (
-      user?.verificationOtpExpiresAt &&
-      user.verificationOtpExpiresAt < new Date()
-    ) {
-      await this.store.db
-        .update(users)
-        .set({ verificationOtp: null, verificationOtpExpiresAt: null })
-        .where(eq(users.id, user.id));
-
-      throw new OperationalError({
-        code: UserErrorCodes.VerificationOtpInvalidOrExpired,
-        message: `Verifying user failed because the otp has been expired for ${((Date.now() - user.verificationOtpExpiresAt!.getTime()) / 60000).toFixed(2)} minutes`,
-      });
-    }
-
-    await this.store.db
-      .update(users)
-      .set({
-        verificationOtp: null,
-        verificationOtpExpiresAt: null,
-        status: "verified",
-      })
-      .where(eq(users.id, user.id));
-  }
-
-  async logUserIn(email: string, password: string, rememberMe: boolean = false) {
-    const user = await this.store.db.query.users.findFirst({
-      where: {
-        email,
-      },
-    });
-
-    if (!user) {
-      throw new OperationalError({
-        code: UserErrorCodes.InvalidEmailOrPassword,
-        message: "Logging user in failed because their email was not found",
-      });
-    }
-
-    if (user.status !== "verified") {
-      throw new OperationalError({
-        code: UserErrorCodes.AccountNotVerified,
-        message: "Logging user in failed because they are not verified yet",
-      });
-    }
-
-    if (!verifyPassword(password, user?.password)) {
-      throw new OperationalError({
-        code: UserErrorCodes.InvalidEmailOrPassword,
-        message: "Logging user in failed because their password is incorrect",
-      });
-    }
-
-    const accessToken = sign({ id: user.id }, this.store.JWT_SECRET, {
-      jwtid: user.accessTokenId.toString(),
-      algorithm: "HS512",
-      expiresIn: rememberMe ? "30d" : "1d",
-    });
-
-    return accessToken;
-  }
-
-  async changeName(id: string, name: string) {
-    const user = await this.store.db.query.users.findFirst({
-      where: {
-        id,
-        status: "verified",
-      },
-    });
-
-    if (!user) {
-      throw new OperationalError({
-        code: UserErrorCodes.UserNotFound,
-        message: "Changing user name failed because the user does not exist",
-      });
-    }
-
-    await this.store.db.update(users).set({ name }).where(eq(users.id, id));
-  }
-
-  async requestChangeEmail(id: string, newEmail: string) {
-    const existingUser = await this.store.db.query.users.findFirst({
-      where: {
-        email: newEmail,
-        id: {
-          ne: id,
-        },
-      },
-    });
-
-    if (existingUser) {
-      throw new OperationalError({
-        code: UserErrorCodes.EmailAlreadyRegistered,
-        message:
-          "Requesting to change an email for a user failed because the new email is already taken",
-      });
-    }
-
-    const user = await this.store.db.query.users.findFirst({
-      where: {
-        id,
-        status: "verified",
-      },
-    });
-
-    if (!user) {
-      throw new OperationalError({
-        code: UserErrorCodes.UserNotFound,
-        message:
-          "Requesting to change an email for a user failed because the user does not exist",
-      });
-    }
-
-    if (newEmail === user.email) {
-      throw new OperationalError({
-        code: UserErrorCodes.SameEmail,
-        message:
-          "Requesting to change an email for a user failed because the new email is the same as the old one",
-      });
-    }
-
-    const otp = crypto.randomBytes(3).toHex().toUpperCase();
-    await this.store.db
-      .update(users)
-      .set({
-        emailChangeOtp: otp,
-        emailChangeOtpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
-      })
-      .where(eq(users.id, id))
-      .returning();
-
-    return {
-      otp,
-      user: {
-        name: user.name,
-        email: user.email,
-      },
-    };
-  }
-
-  async changeEmail(
-    id: string,
-    otp: string,
-    newEmail: string,
-    password: string,
-  ) {
-    const existingUser = await this.store.db.query.users.findFirst({
-      where: {
-        email: newEmail,
-        id: {
-          ne: id,
-        },
-      },
-    });
-
-    if (existingUser) {
-      throw new OperationalError({
-        code: UserErrorCodes.EmailAlreadyRegistered,
-        message:
-          "Changing an email for a user failed because the new email is already taken",
-      });
-    }
-
-    const user = await this.store.db.query.users.findFirst({
-      where: {
-        id,
-        status: "verified",
-      },
-    });
-
-    if (!user) {
-      throw new OperationalError({
-        code: UserErrorCodes.UserNotFound,
-        message:
-          "Changing an email for a user failed because the user does not exist",
-      });
-    }
-
-    if (!user.emailChangeOtp || user.emailChangeOtp !== otp) {
-      throw new OperationalError({
-        code: UserErrorCodes.EmailChangeOtpInvalidOrExpired,
-        message:
-          "Changing an email for a user failed because the OTP is invalid",
-      });
-    }
-
-    if (
-      user.emailChangeOtpExpiresAt &&
-      user.emailChangeOtpExpiresAt < new Date()
-    ) {
-      await this.store.db
-        .update(users)
-        .set({ emailChangeOtp: null, emailChangeOtpExpiresAt: null })
-        .where(eq(users.id, id));
-
-      throw new OperationalError({
-        code: UserErrorCodes.EmailChangeOtpInvalidOrExpired,
-        message:
-          "Changing an email for a user failed because the OTP has expired",
-      });
-    }
-
-    if (!verifyPassword(password, user.password)) {
-      throw new OperationalError({
-        code: UserErrorCodes.WrongPassword,
-        message:
-          "Changing an email for a user failed because the password is incorrect",
-      });
-    }
-
+  async verifyUser(params: z.infer<typeof verifyUserParamsSchema>) {
     try {
-      const [updatedUser] = await this.store.db
-        .update(users)
-        .set({
+      const { email, otp, rememberMe } = verifyUserParamsSchema.parse(params);
+
+      const user = await this.store.db.query.users.findFirst({
+        where: { email },
+      });
+
+      if (!user) throw new NotFoundError("user", `email: ${email}`);
+
+      if (user.verificationOtp !== otp)
+        throw new CustomError(CustomErrorCodes.InvalidVerificationOtp);
+
+      if (
+        user.verificationOtpExpiresAt &&
+        user.verificationOtpExpiresAt < new Date()
+      ) {
+        await this.store.db
+          .update(users)
+          .set({ verificationOtp: null, verificationOtpExpiresAt: null })
+          .where(eq(users.id, user.id));
+        throw new CustomError(CustomErrorCodes.ExpiredVerificationOtp);
+      }
+
+      const updatedUser = await mutateOneOrThrow(
+        this.store.db
+          .update(users)
+          .set({
+            status: "verified",
+            verificationOtp: null,
+            verificationOtpExpiresAt: null,
+          })
+          .where(eq(users.id, user.id))
+          .returning(),
+        "user",
+        `id: ${user.id}`,
+      );
+
+      const accessToken = sign({ id: user.id }, this.store.JWT_SECRET, {
+        jwtid: user.accessTokenId.toString(),
+        algorithm: "HS512",
+        expiresIn: rememberMe ? "30d" : "1d",
+      });
+
+      return { ...updatedUser, accessToken };
+    } catch (e) {
+      handleError(e);
+    }
+  }
+
+  async logUserIn(params: z.infer<typeof logUserInParamsSchema>) {
+    try {
+      const { email, password, rememberMe } =
+        logUserInParamsSchema.parse(params);
+
+      const user = await this.store.db.query.users.findFirst({
+        where: {
+          email,
+        },
+      });
+
+      if (!user) throw new NotFoundError("user", `email: ${email}`);
+
+      if (user.status !== "verified")
+        throw new CustomError(CustomErrorCodes.AccountNotVerified);
+
+      if (!verifyPassword(password, user?.password))
+        throw new CustomError(CustomErrorCodes.IncorrectPassword);
+
+      const accessToken = sign({ id: user.id }, this.store.JWT_SECRET, {
+        jwtid: user.accessTokenId.toString(),
+        algorithm: "HS512",
+        expiresIn: rememberMe ? "30d" : "1d",
+      });
+
+      return { ...user, accessToken };
+    } catch (e) {
+      handleError(e);
+    }
+  }
+
+  async changeName(params: z.infer<typeof changeNameParamsSchema>) {
+    try {
+      const { id, name } = changeNameParamsSchema.parse(params);
+
+      const user = await mutateOneOrThrow(
+        this.store.db
+          .update(users)
+          .set({ name })
+          .where(and(eq(users.id, id), eq(users.status, "verified")))
+          .returning(),
+        "user",
+        `id: ${id} & status: verified`,
+      );
+
+      return user;
+    } catch (e) {
+      handleError(e);
+    }
+  }
+
+  async requestChangeEmail(
+    params: z.infer<typeof requestChangeEmailParamsSchema>,
+  ) {
+    try {
+      const { id, newEmail } = requestChangeEmailParamsSchema.parse(params);
+
+      const existingUser = await this.store.db.query.users.findFirst({
+        where: {
           email: newEmail,
-          emailChangeOtp: null,
-          emailChangeOtpExpiresAt: null,
-          accessTokenId: sql`(${users.accessTokenId} + 1) % 1000`,
-        })
-        .where(eq(users.id, id))
-        .returning({
-          id: users.id,
-          name: users.name,
-          email: users.email,
-          phoneNumber: users.phoneNumber,
-          role: users.role,
-          status: users.status,
-          createdAt: users.createdAt,
-          updatedAt: users.updatedAt,
-        });
+        },
+      });
+
+      if (existingUser) {
+        if (existingUser.id === id)
+          throw new CustomError(CustomErrorCodes.RequestingSameEmailChange);
+
+        throw new AlreadyExistsError("user", `email: ${newEmail}`);
+      }
+
+      const user = await mutateOneOrThrow(
+        this.store.db
+          .update(users)
+          .set({
+            emailChangeOtp: crypto.randomBytes(3).toHex().toUpperCase(),
+            emailChangeOtpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+          })
+          .where(and(eq(users.id, id), eq(users.status, "verified")))
+          .returning(),
+        "user",
+        `id: ${id} & status: verified`,
+      );
+
+      return user;
+    } catch (e) {
+      handleError(e);
+    }
+  }
+
+  async changeEmail(params: z.infer<typeof changeEmailParamsSchema>) {
+    try {
+      const { id, newEmail, otp, password } =
+        changeEmailParamsSchema.parse(params);
+      const existingUser = await this.store.db.query.users.findFirst({
+        where: {
+          email: newEmail,
+        },
+      });
+
+      if (existingUser)
+        throw new AlreadyExistsError("user", `email: ${newEmail}`);
+
+      const user = await this.store.db.query.users.findFirst({
+        where: {
+          id,
+          status: "verified",
+        },
+      });
+
+      if (!user) throw new NotFoundError("user", `id: ${id} & status: verified`);
+
+      if (user.emailChangeOtp !== otp)
+        throw new CustomError(CustomErrorCodes.InvalidEmailChangeOtp);
+
+      if (
+        user.emailChangeOtpExpiresAt &&
+        user.emailChangeOtpExpiresAt < new Date()
+      ) {
+        await this.store.db
+          .update(users)
+          .set({ emailChangeOtp: null, emailChangeOtpExpiresAt: null })
+          .where(eq(users.id, id));
+        throw new CustomError(CustomErrorCodes.ExpiredEmailChangeOtp);
+      }
+
+      if (!verifyPassword(password, user.password))
+        throw new CustomError(CustomErrorCodes.IncorrectPassword);
+
+      const updatedUser = await mutateOneOrThrow(
+        this.store.db
+          .update(users)
+          .set({
+            email: newEmail,
+            emailChangeOtp: null,
+            emailChangeOtpExpiresAt: null,
+            accessTokenId: sql`(${users.accessTokenId} + 1) % 1000`,
+          })
+          .where(eq(users.id, id))
+          .returning(),
+        "user",
+        `id: ${id}`,
+      );
 
       return updatedUser;
     } catch (e) {
@@ -310,134 +264,127 @@ export class Users {
     }
   }
 
-  async changePassword(id: string, oldPassword: string, newPassword: string) {
-    const user = await this.store.db.query.users.findFirst({
-      where: {
-        id,
-        status: "verified",
-      },
-    });
-
-    if (!user) {
-      throw new OperationalError({
-        code: UserErrorCodes.UserNotFound,
-        message: "Changing user password failed because the user does not exist",
+  async changePassword(params: z.infer<typeof changePasswordParamsSchema>) {
+    try {
+      const { id, newPassword, oldPassword } =
+        changePasswordParamsSchema.parse(params);
+      const user = await this.store.db.query.users.findFirst({
+        where: {
+          id,
+          status: "verified",
+        },
       });
-    }
 
-    if (!verifyPassword(oldPassword, user.password)) {
-      throw new OperationalError({
-        code: UserErrorCodes.WrongCurrentPassword,
-        message:
-          "Changing user password failed because the old password is incorrect",
-      });
-    }
+      if (!user) throw new NotFoundError("user", `id: ${id} & status: verified`);
 
-    await this.store.db
-      .update(users)
-      .set({
-        password: hashPassword(newPassword),
-        accessTokenId: sql`(${users.accessTokenId} + 1) % 1000`,
-      })
-      .where(eq(users.id, id));
+      if (!verifyPassword(oldPassword, user.password))
+        throw new CustomError(CustomErrorCodes.IncorrectPassword);
+
+      const updatedUser = mutateOneOrThrow(
+        this.store.db
+          .update(users)
+          .set({
+            password: hashPassword(newPassword),
+            accessTokenId: sql`(${users.accessTokenId} + 1) % 1000`,
+          })
+          .where(eq(users.id, id))
+          .returning(),
+        "user",
+        `id: ${id}`,
+      );
+
+      return updatedUser;
+    } catch (e) {
+      handleError(e);
+    }
   }
 
-  async requestPasswordReset(email: string) {
-    const user = await this.store.db.query.users.findFirst({
-      where: {
-        email,
-        status: "verified",
-      },
-    });
-
-    if (!user) {
-      throw new OperationalError({
-        code: UserErrorCodes.UserNotFound,
-        message:
-          "Requesting a password reset failed because the user does not exist",
-      });
-    }
-
-    const resetToken = crypto.randomBytes(32).toHex();
-
-    await this.store.db
-      .update(users)
-      .set({
-        passwordResetToken: resetToken,
-        passwordResetTokenExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
-      })
-      .where(eq(users.email, email));
-
-    return {
-      token: resetToken,
-      user: {
-        name: user.name,
-        email: user.email,
-      },
-    };
-  }
-
-  async resetPassword(token: string, newPassword: string) {
-    const user = await this.store.db.query.users.findFirst({
-      where: {
-        passwordResetToken: token,
-        status: "verified",
-      },
-    });
-
-    if (!user) {
-      throw new OperationalError({
-        code: UserErrorCodes.InvalidOrExpiredResetToken,
-        message:
-          "Resetting a password failed because the token does not match any user",
-      });
-    }
-
-    if (
-      user.passwordResetTokenExpiresAt &&
-      user.passwordResetTokenExpiresAt < new Date()
-    ) {
-      throw new OperationalError({
-        code: UserErrorCodes.InvalidOrExpiredResetToken,
-        message: "Resetting a password failed because the token has expired",
-      });
-    }
-
-    await this.store.db
-      .update(users)
-      .set({
-        password: hashPassword(newPassword),
-        passwordResetToken: null,
-        passwordResetTokenExpiresAt: null,
-        accessTokenId: sql`(${users.accessTokenId} + 1) % 1000`,
-      })
-      .where(eq(users.id, user.id));
-  }
-
-  async addAddress(
-    userId: string,
-    address: {
-      name: string;
-      country: string;
-      state: string;
-      city: string;
-      street: string;
-      building: string;
-      floor?: string;
-    },
+  async requestPasswordReset(
+    email: z.infer<typeof requestResetPasswordParamsSchema>,
   ) {
     try {
-      const [newAddress] = await this.store.db
-        .insert(addresses)
-        .values({
-          userId,
-          ...address,
-        })
-        .returning();
+      const validatedEmail = requestResetPasswordParamsSchema.parse(email);
 
-      if (!newAddress) {
-        throw new Error("Error inserting an address");
+      const user = await mutateOneOrThrow(
+        this.store.db
+          .update(users)
+          .set({
+            passwordResetToken: crypto.randomBytes(32).toHex(),
+            passwordResetTokenExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+          })
+          .where(
+            and(eq(users.email, validatedEmail), eq(users.status, "verified")),
+          )
+          .returning(),
+        "user",
+        `email: ${validatedEmail} & status: verified`,
+      );
+
+      return user;
+    } catch (e) {
+      handleError(e);
+    }
+  }
+
+  async resetPassword(params: z.infer<typeof resetPasswordParamsSchema>) {
+    try {
+      const { newPassword, token } = resetPasswordParamsSchema.parse(params);
+
+      const user = await this.store.db.query.users.findFirst({
+        where: {
+          passwordResetToken: token,
+          status: "verified",
+        },
+      });
+
+      if (!user) throw new NotFoundError("user", "passwordResetToken");
+
+      if (
+        user.passwordResetTokenExpiresAt &&
+        user.passwordResetTokenExpiresAt < new Date()
+      ) {
+        await this.store.db
+          .update(users)
+          .set({ passwordResetToken: null, passwordResetTokenExpiresAt: null })
+          .where(eq(users.id, user.id));
+        throw new CustomError(CustomErrorCodes.ExpiredPasswordResetToken);
       }
+
+      const updatedUser = await mutateOneOrThrow(
+        this.store.db
+          .update(users)
+          .set({
+            password: hashPassword(newPassword),
+            passwordResetToken: null,
+            passwordResetTokenExpiresAt: null,
+            accessTokenId: sql`(${users.accessTokenId} + 1) % 1000`,
+          })
+          .where(eq(users.id, user.id))
+          .returning(),
+        "user",
+        `passwordResetToken`,
+      );
+
+      return updatedUser;
+    } catch (e) {
+      handleError(e);
+    }
+  }
+
+  async addAddress(params: z.infer<typeof addAddressParamsSchema>) {
+    try {
+      const { address, userId } = addAddressParamsSchema.parse(params);
+
+      const newAddress = await insertOneOrThrow(
+        this.store.db
+          .insert(addresses)
+          .values({
+            userId,
+            ...address,
+          })
+          .returning(),
+        "address",
+      );
 
       return newAddress;
     } catch (e) {
@@ -445,47 +392,38 @@ export class Users {
     }
   }
 
-  async updateAddress(
-    id: string,
-    address: {
-      name?: string;
-      country?: string;
-      state?: string;
-      city?: string;
-      street?: string;
-      building?: string;
-      floor?: string;
-    },
-  ) {
-    const [updatedAddress] = await this.store.db
-      .update(addresses)
-      .set({ ...address })
-      .where(eq(addresses.id, id))
-      .returning();
+  async updateAddress(params: z.infer<typeof updateAddressParamsSchema>) {
+    try {
+      const { id, ...address } = updateAddressParamsSchema.parse(params);
 
-    if (!updatedAddress) {
-      throw new OperationalError({
-        code: UserErrorCodes.AddressNoFound,
-        message: "Updating address failed because it does not exist",
-      });
+      const updatedAddress = await mutateOneOrThrow(
+        this.store.db
+          .update(addresses)
+          .set({ ...address })
+          .where(eq(addresses.id, id))
+          .returning(),
+        "address",
+      );
+
+      return updatedAddress;
+    } catch (e) {
+      handleError(e);
     }
-
-    return updatedAddress;
   }
 
-  async deleteAddress(id: string) {
-    const [address] = await this.store.db
-      .delete(addresses)
-      .where(eq(addresses.id, id))
-      .returning();
+  async removeAddress(id: z.infer<typeof deleteAddressParamsSchema>) {
+    try {
+      const validatedId = deleteAddressParamsSchema.parse(id);
 
-    if (!address) {
-      throw new OperationalError({
-        code: UserErrorCodes.AddressNoFound,
-        message: "Deleting address failed because it does not exist",
-      });
+      await mutateOneOrThrow(
+        this.store.db
+          .delete(addresses)
+          .where(eq(addresses.id, validatedId))
+          .returning(),
+        "address",
+      );
+    } catch (e) {
+      handleError(e);
     }
-
-    return address.id;
   }
 }

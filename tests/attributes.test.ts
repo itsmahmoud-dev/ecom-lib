@@ -1,28 +1,8 @@
 import { afterAll, expect, test } from "bun:test";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
-import { OperationalError } from "../src/utils/errors";
-import { AttributeErrorCodes } from "../src/utils/errors";
+import { NotFoundError, AlreadyExistsError } from "../src/utils/errors";
 import { attributes } from "../src/db/schema";
-
-test("Get attributes by key", async () => {
-  const key = faker.string.alphanumeric(12);
-
-  const [attr1, attr2] = await Promise.all([
-    store.attributes.addAttribute({ key, value: faker.string.alphanumeric(8) }),
-    store.attributes.addAttribute({ key, value: faker.string.alphanumeric(8) }),
-  ]);
-
-  const result = await store.attributes.getAttributesByKey(key);
-
-  expect(result).toHaveLength(2);
-  expect(result).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({ id: attr1!.id }),
-      expect.objectContaining({ id: attr2!.id }),
-    ]),
-  );
-});
 
 test("Add an attribute", async () => {
   const key = faker.string.alphanumeric(12);
@@ -48,10 +28,7 @@ test("Add an attribute with a duplicate key and value", async () => {
 
   const result = store.attributes.addAttribute({ key, value, type: "text" });
 
-  expect(result).rejects.toThrow(OperationalError);
-  expect(result).rejects.toMatchObject({
-    code: AttributeErrorCodes.AttributeAlreadyExists,
-  });
+  expect(result).rejects.toThrowError(AlreadyExistsError);
 });
 
 test("Remove an attribute", async () => {
@@ -77,10 +54,7 @@ test("Remove an attribute", async () => {
 test("Remove an attribute that does not exist", async () => {
   const result = store.attributes.removeAttribute(faker.string.uuid());
 
-  expect(result).rejects.toThrow(OperationalError);
-  expect(result).rejects.toMatchObject({
-    code: AttributeErrorCodes.AttributeNotFound,
-  });
+  expect(result).rejects.toThrowError(NotFoundError);
 });
 
 afterAll(async () => {

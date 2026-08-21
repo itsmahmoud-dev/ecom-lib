@@ -24,7 +24,7 @@ export const addresses = snakeCase.table("addresses", (t) => ({
 
   building: t.text().notNull(),
 
-  floor: t.text(),
+  floor: t.integer(),
 
   createdAt: t.timestamp({ withTimezone: true }).notNull().defaultNow(),
 

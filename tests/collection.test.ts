@@ -1,11 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
-import {
-  OperationalError,
-  CollectionErrorCodes,
-  ProductErrorCodes,
-} from "../src/utils/errors";
+import { NotFoundError } from "../src/utils/errors";
 import { collections, inCollection, products } from "../src/db/schema";
 
 async function makeProduct() {
@@ -23,8 +19,13 @@ async function makeProduct() {
 
 test("Add a collection", async () => {
   const name = faker.commerce.department();
+  const product1 = await makeProduct();
+  const product2 = await makeProduct();
 
-  const collection = await store.collections.addCollection(name);
+  const collection = await store.collections.addCollection({
+    name,
+    productIds: [product1.id, product2.id],
+  });
 
   expect(collection).toMatchObject({ name });
 });
@@ -52,99 +53,7 @@ test("Update a collection that doesn't exist", async () => {
     name: faker.commerce.department(),
   });
 
-  expect(result).rejects.toThrow(OperationalError);
-  expect(result).rejects.toMatchObject({
-    code: CollectionErrorCodes.CollectionNotFound,
-  });
-});
-
-test("Add products to a collection", async () => {
-  const [collection] = await store.db
-    .insert(collections)
-    .values({ name: faker.commerce.department() })
-    .returning();
-
-  expect(collection).toBeDefined();
-
-  const product1 = await makeProduct();
-  const product2 = await makeProduct();
-
-  const result = await store.collections.addProductsToCollection({
-    id: collection!.id,
-    productIds: [product1.id, product2.id],
-  });
-
-  expect(result).toBeUndefined();
-
-  const rows = await store.db.query.inCollection.findMany({
-    where: { collectionId: collection!.id },
-  });
-
-  expect(rows).toHaveLength(2);
-  expect(rows.map((r) => r.productId)).toEqual(
-    expect.arrayContaining([product1.id, product2.id]),
-  );
-});
-
-test("Add non-existent products to a collection", async () => {
-  const [collection] = await store.db
-    .insert(collections)
-    .values({ name: faker.commerce.department() })
-    .returning();
-
-  expect(collection).toBeDefined();
-
-  const result = store.collections.addProductsToCollection({
-    id: collection!.id,
-    productIds: [faker.string.uuid()],
-  });
-
-  expect(result).rejects.toThrow();
-  expect(result).rejects.toMatchObject({
-    code: ProductErrorCodes.ProductNotFound,
-  });
-});
-
-test("Add products to a collection that doesn't exist", async () => {
-  const product = await makeProduct();
-
-  const result = store.collections.addProductsToCollection({
-    id: faker.string.uuid(),
-    productIds: [product.id],
-  });
-
-  expect(result).rejects.toThrow();
-  expect(result).rejects.toMatchObject({
-    code: CollectionErrorCodes.CollectionNotFound,
-  });
-});
-
-test("Remove products from a collection", async () => {
-  const [collection] = await store.db
-    .insert(collections)
-    .values({ name: faker.commerce.department() })
-    .returning();
-
-  expect(collection).toBeDefined();
-
-  const product1 = await makeProduct();
-  const product2 = await makeProduct();
-
-  await store.db.insert(inCollection).values([
-    { collectionId: collection!.id, productId: product1.id },
-    { collectionId: collection!.id, productId: product2.id },
-  ]);
-
-  await store.collections.removeProductsFromCollection({
-    id: collection!.id,
-    productIds: [product1.id, product2.id],
-  });
-
-  const rows = await store.db.query.inCollection.findMany({
-    where: { collectionId: collection!.id },
-  });
-
-  expect(rows).toHaveLength(0);
+  expect(result).rejects.toThrow(NotFoundError);
 });
 
 test("Remove a collection", async () => {
@@ -167,10 +76,7 @@ test("Remove a collection", async () => {
 test("Remove a collection that doesn't exist", async () => {
   const result = store.collections.removeCollection(faker.string.uuid());
 
-  expect(result).rejects.toThrow(OperationalError);
-  expect(result).rejects.toMatchObject({
-    code: CollectionErrorCodes.CollectionNotFound,
-  });
+  expect(result).rejects.toThrow(NotFoundError);
 });
 
 afterAll(async () => {

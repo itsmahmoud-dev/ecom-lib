@@ -1,222 +1,129 @@
 import { DrizzleQueryError } from "drizzle-orm";
-import pc from "picocolors";
-
 import { extractKeyValue } from "./string";
-import {
-  getTableConfig,
-  type PgColumn,
-  type PgTable,
-} from "drizzle-orm/pg-core";
-import {
-  addresses,
-  cartItems,
-  imagesToAttributes,
-  inCollection,
-  productsToAttributes,
-  productVariantsToAttributes,
-} from "../db/schema";
-
-export type ErrorSeverity = "error" | "warning" | "info";
 
 // ================================ Error Codes ================================
+export enum CustomErrorCodes {
+  EmptyCart = "C001",
 
-export enum UserErrorCodes {
-  UserNotFound = "U000",
-  InvalidEmailOrPassword = "U001",
-  EmailChangeOtpInvalidOrExpired = "U002",
-  AccountNotVerified = "U003",
-  VerificationOtpInvalidOrExpired = "U004",
-  EmailAlreadyRegistered = "U005",
-  WrongPassword = "U006",
-  WrongCurrentPassword = "U007",
-  InvalidOrExpiredResetToken = "U008",
-  SameEmail = "U009",
-  AddressNoFound = "U010",
+  OrderAlreadyCanceled = "OR001",
+  OrderCannotBeCanceled = "OR002",
+
+  ProductVersionMismatch = "P001",
+  InsuffecientImages = "P002",
+
+  AccountNotVerified = "U001",
+  IncorrectPassword = "U002",
+  RequestingSameEmailChange = "U003",
+  InvalidVerificationOtp = "U004",
+  ExpiredVerificationOtp = "U005",
+  InvalidEmailChangeOtp = "U006",
+  ExpiredEmailChangeOtp = "U007",
+  ExpiredPasswordResetToken = "U008",
 }
 
-export enum ProductErrorCodes {
-  BarcodeAlreadyExists = "P000",
-  ProductNotFound = "P001",
-  VariantNotFound = "P002",
-  ImageNotFound = "P003",
-  VersionMismatch = "P004",
-  InsuffecientImages = "P005",
+export enum CustomErrorMessages {
+  C001 = "Trying to place an order with an empty cart",
+  OR001 = "Trying to update an already canceled order",
+  OR002 = "Trying to cancel an order past the pending state",
+  P001 = "Trying to update a product with an expired version",
+  P002 = "Trying to update a product with insufficient images",
+  U001 = "Trying to login user with an unverified account",
+  U002 = "Trying to login with an incorrect password",
+  U003 = "Trying to change email to the same email",
+  U004 = "Trying to verify an account with an invalid otp",
+  U005 = "Trying to verify an account with an expired otp",
+  U006 = "Trying to change an email with an invalid otp",
+  U007 = "Trying to change an email with an expired otp",
+  U008 = "Trying to reset an email with an expired token",
 }
 
-export enum AttributeErrorCodes {
-  AttributeAlreadyExists = "F000",
-  AttributeNotFound = "F001",
+// =================== Errors Classes ===================
+export class NotFoundError extends Error {
+  entity: string;
+  context?: string;
+
+  constructor(entity: string, context?: string) {
+    super(
+      context
+        ? `${entity} was not found (${context})`
+        : `${entity} was not found`,
+    );
+    this.entity = entity;
+    this.context = context;
+  }
 }
 
-export enum CartItemErrorsCodes {
-  CartItemNotFound = "B000",
-  QuantityInvalid = "B001",
-  CartItemAlreadyExists = "B002",
+export class AlreadyExistsError extends Error {
+  entity: string;
+  context?: string;
+
+  constructor(entity: string, context?: string) {
+    super(
+      context
+        ? `${entity} already exists`
+        : `${entity} already exists (${context})`,
+    );
+    this.entity = entity;
+    this.context = context;
+  }
 }
 
-export enum CollectionErrorCodes {
-  CollectionNotFound = "C000",
+export class CheckViolationError extends Error {
+  entity: string;
+  constraint?: string;
+
+  constructor(entity: string, constraint?: string) {
+    super(
+      constraint
+        ? `${entity} violates constraint ${constraint}`
+        : `${entity} violates constraint`,
+    );
+    this.entity = entity;
+    this.constraint = constraint;
+  }
 }
 
-export enum OrderErrorCodes {
-  CartEmpty = "OR000",
-  OrderNotFound = "OR001",
-  InvalidOrderStatus = "OR002",
-  QuantityNotEnough = "OR003",
+export class QuantityInsufficientError extends Error {
+  entity: string;
+  desiredQuantity: number;
+  availableQuantity: number;
+
+  constructor(
+    entity: string,
+    desiredQuantity: number,
+    availableQuantity: number,
+  ) {
+    super(
+      `Desired quantity (${desiredQuantity}) exceeds available quantity (${availableQuantity}) for ${entity}`,
+    );
+    this.entity = entity;
+    this.desiredQuantity = desiredQuantity;
+    this.availableQuantity = availableQuantity;
+  }
 }
 
-// =================== Error Class ===================
+export class CustomError extends Error {
+  code: CustomErrorCodes;
 
-type args = {
-  code: string;
-  message: string;
-  cause?: string;
-  data?: any;
-};
-
-export class OperationalError extends Error {
-  code: string;
-  override message: string;
-  override cause?: string;
-  data: any;
-
-  constructor(params: args) {
-    super();
-    this.code = params.code;
-    this.message = params.message;
-    this.cause = params.cause;
-    this.data = params.data;
+  constructor(code: CustomErrorCodes, data?: any) {
+    super(CustomErrorMessages[code]);
+    this.code = code;
   }
 }
 
 // ================================ Error Handling ================================
-
 export function handleError(e: unknown): never {
   if (isUniqueViolationError(e)) {
     const [key, value] = extractKeyValue(e.cause.detail);
-    if (e.cause.table === "attributes") {
-      if (key?.includes("key") || key?.includes("value")) {
-        throw new OperationalError({
-          code: AttributeErrorCodes.AttributeAlreadyExists,
-          message: `Inserting/updating an attribute failed because they key value pair already exists`,
-        });
-      }
-    }
-    if (e.cause.table === "products") {
-      if (key === "barcode") {
-        throw new OperationalError({
-          code: ProductErrorCodes.BarcodeAlreadyExists,
-          message: `Inserting/Updating a product with barcode (${value}) failed because a product with the same barcode already exists.`,
-        });
-      }
-    }
-    if (e.cause.table === "cartItems") {
-      if (
-        key?.includes("user_id") ||
-        key?.includes("product_id") ||
-        key?.includes("variant_id")
-      ) {
-        throw new OperationalError({
-          code: CartItemErrorsCodes.CartItemAlreadyExists,
-          message: "Adding cart item failed because it already exists",
-        });
-      }
-    }
+    throw new AlreadyExistsError(e.cause.table, `${key}: ${value}`);
   }
 
-  if (isCheckViolationError(e)) {
-    if (e.cause.table === "cartItems" && e.cause.constraint === "min_quantity") {
-      throw new OperationalError({
-        code: CartItemErrorsCodes.QuantityInvalid,
-        message: `Updating cart item quantity failed because the quantity is not positive`,
-      });
-    }
-  }
+  if (isCheckViolationError(e))
+    throw new CheckViolationError(e.cause.table, e.cause.constraint);
 
   if (isForeignKeyViolation(e)) {
     const [key, value] = e.cause.detail;
-    if (
-      e.cause.constraint ===
-      getForeignKeyConstraintName(cartItems, cartItems.userId)
-    ) {
-      throw new OperationalError({
-        code: UserErrorCodes.UserNotFound,
-        message: "Adding a cart item failed because the user was not found",
-      });
-    }
-    if (
-      e.cause.constraint ===
-      getForeignKeyConstraintName(cartItems, cartItems.variantId)
-    ) {
-      throw new OperationalError({
-        code: ProductErrorCodes.VariantNotFound,
-        message:
-          "Adding a cart item failed because one of the variants was not found",
-      });
-    }
-    if (
-      e.cause.constraint ===
-      getForeignKeyConstraintName(cartItems, cartItems.productId)
-    ) {
-      throw new OperationalError({
-        code: ProductErrorCodes.ProductNotFound,
-        message: "Adding a cart item failed because the product was not found",
-      });
-    }
-    if (
-      e.cause.constraint ===
-        getForeignKeyConstraintName(
-          productsToAttributes,
-          productsToAttributes.attributeId,
-        ) ||
-      e.cause.constraint ===
-        getForeignKeyConstraintName(
-          productVariantsToAttributes,
-          productVariantsToAttributes.attributeId,
-        ) ||
-      e.cause.constraint ===
-        getForeignKeyConstraintName(
-          imagesToAttributes,
-          imagesToAttributes.attributeId,
-        )
-    ) {
-      throw new OperationalError({
-        code: AttributeErrorCodes.AttributeNotFound,
-        message:
-          "Adding a cart item failed because one of the attributes was not found",
-      });
-    }
-    if (
-      e.cause.constraint ===
-      getForeignKeyConstraintName(addresses, addresses.userId)
-    ) {
-      throw new OperationalError({
-        code: UserErrorCodes.UserNotFound,
-        message: "Adding an address failed because the user was not found",
-      });
-    }
-
-    if (
-      e.cause.constraint ===
-      getForeignKeyConstraintName(inCollection, inCollection.productId)
-    ) {
-      throw new OperationalError({
-        code: ProductErrorCodes.ProductNotFound,
-        message:
-          "Adding a product to a collection failed because the product was not found",
-      });
-    }
-
-    if (
-      e.cause.constraint ===
-      getForeignKeyConstraintName(inCollection, inCollection.collectionId)
-    ) {
-      throw new OperationalError({
-        code: CollectionErrorCodes.CollectionNotFound,
-        message:
-          "Adding a product to a collection failed because the collection was not found",
-      });
-    }
+    throw new NotFoundError(e.cause.table, `${key}: ${value}`);
   }
 
   throw e;
@@ -264,43 +171,4 @@ export function isForeignKeyViolation(e: unknown): e is DrizzleQueryError & {
     "constraint" in e.cause &&
     e.cause.errno === "23503"
   );
-}
-
-export function logMessage(severity: ErrorSeverity, message: string) {
-  if (process.env.NODE_ENV === "test") {
-    return;
-  }
-
-  if (severity === "error") {
-    console.log(
-      pc.bgRed(severity.toUpperCase()),
-      `[${new Date().toLocaleString()}]: ${message}`,
-    );
-  }
-
-  if (severity === "warning") {
-    console.log(
-      pc.bgYellow(severity.toUpperCase()),
-      `[${new Date().toLocaleString()}]: ${message}`,
-    );
-  }
-
-  if (severity === "info") {
-    console.log(
-      pc.bgBlue(severity.toUpperCase()),
-      `[${new Date().toLocaleString()}]: ${message}`,
-    );
-  }
-}
-
-function getForeignKeyConstraintName(table: PgTable, column: PgColumn) {
-  const config = getTableConfig(table);
-  const ref = config.foreignKeys.filter((key) =>
-    key
-      .reference()
-      .columns.map((el) => el.name)
-      .includes(column.name),
-  );
-
-  return ref[0]?.getName();
 }

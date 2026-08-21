@@ -2,12 +2,7 @@ import { afterAll, expect, test } from "bun:test";
 import { store } from ".";
 import { faker } from "@faker-js/faker";
 import { cartItems, products, productVariants, users } from "../src/db/schema";
-import {
-  CartItemErrorsCodes,
-  OperationalError,
-  ProductErrorCodes,
-  UserErrorCodes,
-} from "../src/lib/errors";
+import { AlreadyExistsError, NotFoundError } from "../src/utils/errors";
 
 async function makeUser() {
   const [user] = await store.db
@@ -52,7 +47,7 @@ test("Add a cart item", async () => {
   });
 
   expect(item).toBeDefined();
-  expect(item![0]).toMatchObject({
+  expect(item).toMatchObject({
     userId: user.id,
     productId: product.id,
     variantId: variant.id,
@@ -76,11 +71,7 @@ test("Add a duplicate cart item for the same user, product and variant", async (
     variantId: variant.id,
   });
 
-  expect(result).rejects.toThrowError(OperationalError);
-
-  expect(result).rejects.toMatchObject({
-    code: CartItemErrorsCodes.CartItemAlreadyExists,
-  });
+  expect(result).rejects.toThrowError(AlreadyExistsError);
 });
 
 test("Add a cart item for a user that does not exist", async () => {
@@ -92,9 +83,7 @@ test("Add a cart item for a user that does not exist", async () => {
     variantId: variant.id,
   });
 
-  expect(result).rejects.toThrow();
-
-  expect(result).rejects.toMatchObject({ code: UserErrorCodes.UserNotFound });
+  expect(result).rejects.toThrow(NotFoundError);
 });
 
 test("Add a cart item for a variant that does not exist", async () => {
@@ -107,11 +96,7 @@ test("Add a cart item for a variant that does not exist", async () => {
     variantId: faker.string.uuid(),
   });
 
-  expect(result).rejects.toThrow();
-
-  expect(result).rejects.toMatchObject({
-    code: ProductErrorCodes.VariantNotFound,
-  });
+  expect(result).rejects.toThrow(NotFoundError);
 });
 
 test("Add a cart item for a product that does not exist", async () => {
@@ -123,11 +108,7 @@ test("Add a cart item for a product that does not exist", async () => {
     variantId: faker.string.uuid(),
   });
 
-  expect(result).rejects.toThrow();
-
-  expect(result).rejects.toMatchObject({
-    code: ProductErrorCodes.ProductNotFound,
-  });
+  expect(result).rejects.toThrow(NotFoundError);
 });
 
 test("Remove a cart item", async () => {
@@ -141,24 +122,19 @@ test("Remove a cart item", async () => {
 
   expect(item).toBeDefined();
 
-  const removedId = await store.cartItems.removeItem(item!.id);
+  await store.cartItems.removeItem(item!.id);
 
-  expect(removedId.id).toBe(item!.id);
-
-  const dbItem = await store.db.query.cartItems.findFirst({
+  const removedItem = await store.db.query.cartItems.findFirst({
     where: { id: item!.id },
   });
 
-  expect(dbItem).toBeUndefined();
+  expect(removedItem).not.toBeDefined();
 });
 
 test("Remove a cart item that does not exist", async () => {
   const result = store.cartItems.removeItem(faker.string.uuid());
 
-  expect(result).rejects.toThrowError(OperationalError);
-  expect(result).rejects.toMatchObject({
-    code: CartItemErrorsCodes.CartItemNotFound,
-  });
+  expect(result).rejects.toThrowError(NotFoundError);
 });
 
 test("Update a cart item's quantity", async () => {
@@ -172,7 +148,10 @@ test("Update a cart item's quantity", async () => {
 
   expect(item).toBeDefined();
 
-  const updatedItem = await store.cartItems.updateQuantity(item!.id, 5);
+  const updatedItem = await store.cartItems.updateQuantity({
+    id: item!.id,
+    quantity: 5,
+  });
 
   expect(updatedItem).toMatchObject({
     id: item!.id,
@@ -181,12 +160,12 @@ test("Update a cart item's quantity", async () => {
 });
 
 test("Update the quantity of a cart item that does not exist", async () => {
-  const result = store.cartItems.updateQuantity(faker.string.uuid(), 5);
-
-  expect(result).rejects.toThrow(OperationalError);
-  expect(result).rejects.toMatchObject({
-    code: CartItemErrorsCodes.CartItemNotFound,
+  const result = store.cartItems.updateQuantity({
+    id: faker.string.uuid(),
+    quantity: 5,
   });
+
+  expect(result).rejects.toThrow(NotFoundError);
 });
 
 test("Update a cart item's quantity to a value lower than one", async () => {
@@ -200,7 +179,7 @@ test("Update a cart item's quantity to a value lower than one", async () => {
 
   expect(item).toBeDefined();
 
-  const result = store.cartItems.updateQuantity(item!.id, 0);
+  const result = store.cartItems.updateQuantity({ id: item!.id, quantity: 0 });
 
   expect(result).rejects.toEqual(
     expect.objectContaining({
@@ -218,10 +197,13 @@ test("Import cart items", async () => {
   const { product: product1, variant: variant1 } = await makeVariant();
   const { product: product2, variant: variant2 } = await makeVariant();
 
-  const items = await store.cartItems.importItems(user.id, [
-    { productId: product1.id, variantId: variant1.id, quantity: 2 },
-    { productId: product2.id, variantId: variant2.id, quantity: 3 },
-  ]);
+  const items = await store.cartItems.importItems({
+    userId: user.id,
+    items: [
+      { productId: product1.id, variantId: variant1.id, quantity: 2 },
+      { productId: product2.id, variantId: variant2.id, quantity: 3 },
+    ],
+  });
 
   expect(items).toHaveLength(2);
   expect(items).toEqual(
@@ -251,15 +233,15 @@ test("Import cart items with at least one duplicate", async () => {
     .insert(cartItems)
     .values({ userId: user.id, productId: product1.id, variantId: variant1.id });
 
-  const result = store.cartItems.importItems(user.id, [
-    { productId: product2.id, variantId: variant2.id, quantity: 1 },
-    { productId: product1.id, variantId: variant1.id, quantity: 1 },
-  ]);
-
-  expect(result).rejects.toThrow(OperationalError);
-  expect(result).rejects.toMatchObject({
-    code: CartItemErrorsCodes.CartItemAlreadyExists,
+  const result = store.cartItems.importItems({
+    userId: user.id,
+    items: [
+      { productId: product2.id, variantId: variant2.id, quantity: 1 },
+      { productId: product1.id, variantId: variant1.id, quantity: 1 },
+    ],
   });
+
+  expect(result).rejects.toThrow(AlreadyExistsError);
 });
 
 afterAll(async () => {

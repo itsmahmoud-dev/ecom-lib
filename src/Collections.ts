@@ -4,10 +4,15 @@ import {
   updateCollectionParamsSchema,
   deleteCollectionParamSchema,
 } from "./types/collections.type";
-import { handleError } from "./utils/errors";
+import { handleError, NotFoundError } from "./utils/errors";
 import { collections, inCollection } from "./db/schema";
 import { and, eq, inArray } from "drizzle-orm";
-
+import {
+  insertManyOrThrow,
+  insertOneOrThrow,
+  mutateManyOrThrow,
+  mutateOneOrThrow,
+} from "./utils/dbHelpers";
 import type { Store } from "./Store";
 
 export class Collections {
@@ -22,18 +27,32 @@ export class Collections {
       const { name, productIds } = addCollectionParamSchema.parse(params);
       const collectionId = crypto.randomUUID();
 
-      await this.store.db.transaction(async (tx) => {
-        await tx.insert(collections).values({ id: collectionId, name });
-
-        await tx.insert(inCollection).values(
-          productIds.map((el) => ({
-            collectionId,
-            productId: el,
-          })),
+      const collection = await this.store.db.transaction(async (tx) => {
+        const collection = await insertOneOrThrow(
+          tx.insert(collections).values({ id: collectionId, name }).returning(),
+          "collection",
         );
+
+        const products = await insertManyOrThrow(
+          tx
+            .insert(inCollection)
+            .values(
+              productIds.map((el) => ({
+                collectionId,
+                productId: el,
+              })),
+            )
+            .returning(),
+          "collection items",
+        );
+
+        return {
+          ...collection,
+          products: products.map((el) => ({ id: el.productId })),
+        };
       });
 
-      return collectionId;
+      return collection;
     } catch (e) {
       handleError(e);
     }
@@ -44,31 +63,60 @@ export class Collections {
       const { name, productsToAdd, productsToRemove, id } =
         updateCollectionParamsSchema.parse(params);
 
-      await this.store.db.transaction(async (tx) => {
-        await tx
-          .update(collections)
-          .set({ name: name })
-          .where(eq(collections.id, id));
+      const collection = await this.store.db.query.collections.findFirst({
+        where: { id },
+        with: { products: { columns: { id: true } } },
+      });
+
+      if (!collection) throw new NotFoundError("collection", `id: ${id}`);
+
+      const updatedCollection = await this.store.db.transaction(async (tx) => {
+        const updatedCollection = await mutateOneOrThrow(
+          tx
+            .update(collections)
+            .set({ name: name })
+            .where(eq(collections.id, id))
+            .returning(),
+          "collection",
+        );
 
         if (productsToAdd?.length) {
-          await tx
-            .insert(inCollection)
-            .values(
-              productsToAdd.map((el) => ({ collectionId: id, productId: el })),
-            );
+          await insertManyOrThrow(
+            tx
+              .insert(inCollection)
+              .values(
+                productsToAdd.map((el) => ({ collectionId: id, productId: el })),
+              ),
+            "collection items",
+          );
         }
 
         if (productsToRemove?.length) {
-          await tx
-            .delete(inCollection)
-            .where(
-              and(
-                eq(inCollection.collectionId, id),
-                inArray(inCollection.productId, productsToRemove),
+          await mutateManyOrThrow(
+            tx
+              .delete(inCollection)
+              .where(
+                and(
+                  eq(inCollection.collectionId, id),
+                  inArray(inCollection.productId, productsToRemove),
+                ),
               ),
-            );
+            "collection items",
+          );
         }
+
+        return {
+          ...updatedCollection,
+          products: [
+            ...collection.products.filter(
+              (el) => !productsToRemove?.includes(el.id),
+            ),
+            ...(productsToAdd ?? []).map((el) => ({ id: el })),
+          ],
+        };
       });
+
+      return updatedCollection;
     } catch (e) {
       handleError(e);
     }
@@ -78,7 +126,13 @@ export class Collections {
     try {
       const data = deleteCollectionParamSchema.parse(id);
 
-      await this.store.db.delete(collections).where(eq(collections.id, data));
+      await mutateOneOrThrow(
+        this.store.db
+          .delete(collections)
+          .where(eq(collections.id, data))
+          .returning(),
+        "collection",
+      );
     } catch (e) {
       handleError(e);
     }

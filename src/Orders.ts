@@ -1,13 +1,25 @@
 import { eq, inArray, sql, SQL } from "drizzle-orm";
 import { orderItems } from "./db/schema";
 import { orders, productVariants } from "./db/schema";
-import { handleError, OperationalError, OrderErrorCodes } from "./utils/errors";
+import {
+  CustomError,
+  CustomErrorCodes,
+  handleError,
+  NotFoundError,
+  QuantityInsufficientError,
+} from "./utils/errors";
 import { Store } from "./Store";
-import type z from "zod";
 import {
   placeOrderParamsSchema,
   updateOrderStatusParamsSchema,
 } from "./types/orders.types";
+import {
+  insertManyOrThrow,
+  insertOneOrThrow,
+  mutateManyOrThrow,
+  mutateOneOrThrow,
+} from "./utils/dbHelpers";
+import type z from "zod";
 
 export class Order {
   store: Store;
@@ -47,56 +59,65 @@ export class Order {
         },
       });
 
-      if (!cartItems.length) {
-        throw new OperationalError({
-          code: OrderErrorCodes.CartEmpty,
-          message: "Placing an order failed becuase the user's cart is empty",
-        });
-      }
+      if (!cartItems.length) throw new CustomError(CustomErrorCodes.EmptyCart);
 
-      await this.store.db.transaction(async (tx) => {
+      const order = await this.store.db.transaction(async (tx) => {
         const variantQuantityUpdateSQLChunks: SQL[] = [];
         const variantQuantityUpdateIds: string[] = [];
 
         // make sure the quantities are enough
         for (const item of cartItems) {
-          const variant = item.variant;
-
-          if (item.quantity > variant.quantity) {
-            throw new OperationalError({
-              code: OrderErrorCodes.QuantityNotEnough,
-              message:
-                "Placing an order failed because one of the items' quantity was more than the available stock",
-            });
-          }
+          if (item.quantity > item.variant.quantity)
+            throw new QuantityInsufficientError(
+              "order",
+              item.quantity,
+              item.variant.quantity,
+            );
 
           variantQuantityUpdateSQLChunks.push(
-            sql`WHEN ${productVariants.id} = ${variant.id} THEN ${productVariants.quantity} - ${item.quantity}`,
+            sql`WHEN ${productVariants.id} = ${item.variant.id} THEN ${productVariants.quantity} - ${item.quantity}`,
           );
-          variantQuantityUpdateIds.push(variant.id);
+          variantQuantityUpdateIds.push(item.variant.id);
         }
 
-        await tx
-          .update(productVariants)
-          .set({
-            quantity: sql`(CASE ${sql.join(variantQuantityUpdateSQLChunks, sql` `)} ELSE ${productVariants.quantity} END)`,
-          })
-          .where(inArray(productVariants.id, variantQuantityUpdateIds));
-
-        await tx.insert(orders).values({ id: orderId, userId, addressId });
-
-        await tx.insert(orderItems).values(
-          cartItems.map((el) => ({
-            orderId,
-            productId: el.productId,
-            variantId: el.variantId,
-            price: el.variant.price,
-            quantity: el.quantity,
-          })),
+        await mutateManyOrThrow(
+          tx
+            .update(productVariants)
+            .set({
+              quantity: sql`(CASE ${sql.join(variantQuantityUpdateSQLChunks, sql` `)} ELSE ${productVariants.quantity} END)`,
+            })
+            .where(inArray(productVariants.id, variantQuantityUpdateIds)),
+          "product variant",
         );
+
+        const order = await insertOneOrThrow(
+          tx
+            .insert(orders)
+            .values({ id: orderId, userId, addressId })
+            .returning(),
+          "order",
+        );
+
+        const items = await insertManyOrThrow(
+          tx
+            .insert(orderItems)
+            .values(
+              cartItems.map((el) => ({
+                orderId,
+                productId: el.productId,
+                variantId: el.variantId,
+                price: el.variant.price,
+                quantity: el.quantity,
+              })),
+            )
+            .returning(),
+          "order items",
+        );
+
+        return { ...order, items };
       });
 
-      return orderId;
+      return order;
     } catch (e) {
       handleError(e);
     }
@@ -115,32 +136,20 @@ export class Order {
         },
       });
 
-      if (!order) {
-        throw new OperationalError({
-          code: OrderErrorCodes.OrderNotFound,
-          message:
-            "Changing an order's status failed becuase the order does not exist",
-        });
-      }
+      if (!order) throw new NotFoundError("order", `id: ${id}`);
 
-      if (order.status === "canceled") {
-        throw new OperationalError({
-          code: OrderErrorCodes.InvalidOrderStatus,
-          message:
-            "Changing an order's status failed becuase the order has been canceled",
-        });
-      }
+      if (order.status === "canceled")
+        throw new CustomError(CustomErrorCodes.OrderAlreadyCanceled);
 
-      if (status === "canceled" && order.status !== "pending") {
-        throw new OperationalError({
-          code: OrderErrorCodes.InvalidOrderStatus,
-          message:
-            "Canceling an order failed because it's past the pending state.",
-        });
-      }
+      if (status === "canceled" && order.status !== "pending")
+        throw new CustomError(CustomErrorCodes.OrderCannotBeCanceled);
 
       await this.store.db.transaction(async (tx) => {
-        await tx.update(orders).set({ status }).where(eq(orders.id, id));
+        await mutateOneOrThrow(
+          tx.update(orders).set({ status }).where(eq(orders.id, id)),
+          "order",
+          `id:${id}`,
+        );
 
         if (status === "canceled") {
           const variantQuantityUpdateSQLChunks: SQL[] = [];
@@ -153,14 +162,17 @@ export class Order {
             variantQuantityUpdateSQLConditions.push(item.variantId);
           }
 
-          await tx
-            .update(productVariants)
-            .set({
-              quantity: sql`(CASE ${sql.join(variantQuantityUpdateSQLChunks, sql` `)} ELSE ${productVariants.quantity} END)`,
-            })
-            .where(
-              inArray(productVariants.id, variantQuantityUpdateSQLConditions),
-            );
+          await mutateManyOrThrow(
+            tx
+              .update(productVariants)
+              .set({
+                quantity: sql`(CASE ${sql.join(variantQuantityUpdateSQLChunks, sql` `)} ELSE ${productVariants.quantity} END)`,
+              })
+              .where(
+                inArray(productVariants.id, variantQuantityUpdateSQLConditions),
+              ),
+            "product variant",
+          );
         }
       });
     } catch (e) {

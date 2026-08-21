@@ -1,5 +1,5 @@
 import sharp from "sharp";
-
+import { and, eq, inArray, or, SQL, sql } from "drizzle-orm";
 import {
   images,
   imagesToAttributes,
@@ -10,23 +10,24 @@ import {
   productVariantsToImages,
 } from "./db/schema";
 import {
+  CustomError,
+  CustomErrorCodes,
   handleError,
-  OperationalError,
-  ProductErrorCodes,
+  NotFoundError,
 } from "./utils/errors";
 import {
   addProductSchema,
   deleteProductParamSchema,
   updateProductSchema,
 } from "./types/products.type";
-
+import {
+  insertManyOrThrow,
+  insertOneOrThrow,
+  mutateManyOrThrow,
+  mutateOneOrThrow,
+} from "./utils/dbHelpers";
 import type { Store } from "./Store";
 import type z from "zod";
-import { and, eq, inArray, or, SQL, sql } from "drizzle-orm";
-
-type InsertProductParams = z.infer<typeof addProductSchema>;
-
-type UpdateProductParams = z.infer<typeof updateProductSchema>;
 
 export class Products {
   store: Store;
@@ -35,7 +36,7 @@ export class Products {
     this.store = store;
   }
 
-  async addProduct(params: InsertProductParams) {
+  async addProduct(params: z.infer<typeof addProductSchema>) {
     try {
       const { product, variants, ...data } = addProductSchema.parse(params);
 
@@ -99,56 +100,89 @@ export class Products {
 
       await this.store.db.transaction(async (tx) => {
         // inserting product
-        await tx.insert(products).values({
-          id: productId,
-          name: product.name,
-          barcode: product.barcode,
-          active: product.active,
-          description: product.description,
-        });
+        await insertOneOrThrow(
+          tx
+            .insert(products)
+            .values({
+              id: productId,
+              name: product.name,
+              barcode: product.barcode,
+              active: product.active,
+              description: product.description,
+            })
+            .returning(),
+          "product",
+        );
 
         // inserting product attributes
-        await tx.insert(productsToAttributes).values(productAttributesLinks);
+        await insertManyOrThrow(
+          tx
+            .insert(productsToAttributes)
+            .values(productAttributesLinks)
+            .returning(),
+          "product attribute links",
+        );
 
         // inserting product variants
-        await tx.insert(productVariants).values(
-          variantsWithIds.map((el) => ({
-            id: el.id,
-            price: el.price,
-            quantity: el.quantity,
-            productId,
-            discount: el.discount,
-          })),
+        await insertManyOrThrow(
+          tx
+            .insert(productVariants)
+            .values(
+              variantsWithIds.map((el) => ({
+                id: el.id,
+                price: el.price,
+                quantity: el.quantity,
+                productId,
+                discount: el.discount,
+              })),
+            )
+            .returning(),
+          "product varaints",
         );
 
         // inserting variant attributes
-        await tx
-          .insert(productVariantsToAttributes)
-          .values(variantAttributesLinks);
+        await insertManyOrThrow(
+          tx
+            .insert(productVariantsToAttributes)
+            .values(variantAttributesLinks)
+            .returning(),
+          "variants attributes links",
+        );
 
         // inserting images
-        await tx
-          .insert(images)
-          .values(imagesWithids.map((el) => ({ id: el.id, path: el.path })));
+        await insertManyOrThrow(
+          tx
+            .insert(images)
+            .values(imagesWithids.map((el) => ({ id: el.id, path: el.path })))
+            .returning(),
+          "images",
+        );
 
         // inserting image attributes
-        await tx.insert(imagesToAttributes).values(imageAttributesLinks);
+        await insertManyOrThrow(
+          tx.insert(imagesToAttributes).values(imageAttributesLinks).returning(),
+          "images attributes links",
+        );
 
         // inserting image variant links
-        await tx.insert(productVariantsToImages).values(variantImageLinks);
+        await insertManyOrThrow(
+          tx
+            .insert(productVariantsToImages)
+            .values(variantImageLinks)
+            .returning(),
+          "images variants links",
+        );
       });
 
       for (const { buffer, path } of imagesWithids) {
         await Bun.write(`${this.store.dataPath}${path}`, buffer);
       }
-
-      return productId;
     } catch (e) {
       handleError(e);
     }
   }
 
-  async updateProduct(params: UpdateProductParams) {
+  async updateProduct(params: z.infer<typeof updateProductSchema>) {
     try {
       const { product, variants, ...data } = updateProductSchema.parse(params);
 
@@ -173,19 +207,10 @@ export class Products {
         },
       });
 
-      if (!dbProduct) {
-        throw new OperationalError({
-          code: ProductErrorCodes.ProductNotFound,
-          message: "Updating a product failed because it does not exist",
-        });
-      }
+      if (!dbProduct) throw new NotFoundError("product", `id: ${product.id}`);
 
-      if (dbProduct.version !== product.version) {
-        throw new OperationalError({
-          code: ProductErrorCodes.VersionMismatch,
-          message: "Updating a product failed because the versions mismatched",
-        });
-      }
+      if (dbProduct.version !== product.version)
+        throw new CustomError(CustomErrorCodes.ProductVersionMismatch);
 
       const imageFilesToDelete = dbProduct.variants
         .flatMap((el) => el.images)
@@ -194,11 +219,18 @@ export class Products {
 
       // =================== product's attributes ===================
       const updateProductAttrSQLChunks: SQL[] = [];
+      const updateProductAttrSQLConditions: (SQL | undefined)[] = [];
 
       if (product.attributes && Object.keys(product.attributes).length > 0) {
         for (const [key, id] of Object.entries(product.attributes)) {
           updateProductAttrSQLChunks.push(
             sql`WHEN ${productsToAttributes.productId} = ${product.id} AND ${productsToAttributes.key} = ${key} THEN ${id}`,
+          );
+          updateProductAttrSQLConditions.push(
+            and(
+              eq(productsToAttributes.productId, product.id),
+              eq(productsToAttributes.key, key),
+            ),
           );
         }
       }
@@ -431,12 +463,8 @@ export class Products {
           ),
         );
 
-        if (imagesWithSubsetVariants.length === 0) {
-          throw new OperationalError({
-            code: ProductErrorCodes.InsuffecientImages,
-            message: `Attempt to update product failed because at least one of the variants (${variant.id}) did not have an image`,
-          });
-        }
+        if (imagesWithSubsetVariants.length === 0)
+          throw new CustomError(CustomErrorCodes.InsuffecientImages);
 
         for (const img of imagesWithSubsetVariants) {
           if (!img.touched && !variant.touched) {
@@ -460,53 +488,64 @@ export class Products {
       // =================== start of the transpaction ===================
       await this.store.db.transaction(async (tx) => {
         // updating the product
-        await tx
-          .update(products)
-          .set({
-            name: product.name,
-            barcode: product.barcode,
-            active: product.active,
-            description: product.description,
-            version: sql`(${product.version} + 1) % 1000`,
-          })
-          .where(eq(products.id, product.id));
+        await mutateOneOrThrow(
+          tx
+            .update(products)
+            .set({
+              name: product.name,
+              barcode: product.barcode,
+              active: product.active,
+              description: product.description,
+              version: sql`(${product.version} + 1) % 1000`,
+            })
+            .where(eq(products.id, product.id))
+            .returning(),
+          "product",
+        );
 
         // updating the product's attributes
         if (updateProductAttrSQLChunks.length > 0) {
-          await tx
-            .update(productsToAttributes)
-            .set({
-              attributeId: sql`(CASE ${sql.join(updateProductAttrSQLChunks, sql` `)} ELSE ${productsToAttributes.attributeId} END)`,
-            })
-            .where(
-              and(
-                eq(productsToAttributes.productId, product.id),
-                inArray(
-                  productsToAttributes.key,
-                  Object.keys(product.attributes!),
-                ),
-              ),
-            );
+          await mutateManyOrThrow(
+            tx
+              .update(productsToAttributes)
+              .set({
+                attributeId: sql`(CASE ${sql.join(updateProductAttrSQLChunks, sql` `)} ELSE ${productsToAttributes.attributeId} END)`,
+              })
+              .where(or(...updateProductAttrSQLConditions))
+              .returning(),
+            "product attribute link",
+          );
         }
 
         // inserting new variants
         if (newVariantsToInsert?.length) {
-          await tx.insert(productVariants).values(newVariantsToInsert);
+          await insertManyOrThrow(
+            tx.insert(productVariants).values(newVariantsToInsert).returning(),
+            "product variants",
+          );
         }
 
         // inserting new variant attribute links
         if (newVariantsAttrToInsert?.length) {
-          await tx
-            .insert(productVariantsToAttributes)
-            .values(newVariantsAttrToInsert);
+          await insertManyOrThrow(
+            tx
+              .insert(productVariantsToAttributes)
+              .values(newVariantsAttrToInsert)
+              .returning(),
+            "variants attributes links",
+          );
         }
 
         // update existing variants
         if (affectedIds.size > 0) {
-          await tx
-            .update(productVariants)
-            .set({ ...updateVariantPayload })
-            .where(inArray(productVariants.id, Array.from(affectedIds)));
+          await mutateManyOrThrow(
+            tx
+              .update(productVariants)
+              .set({ ...updateVariantPayload })
+              .where(inArray(productVariants.id, Array.from(affectedIds)))
+              .returning(),
+            "product variant",
+          );
         }
 
         // update variant attribute links
@@ -514,26 +553,40 @@ export class Products {
           updateVariantsAttrSQLChunks.length &&
           updateVariantAttrSQLConditions?.length
         ) {
-          await tx
-            .update(productVariantsToAttributes)
-            .set({
-              attributeId: sql`(CASE ${sql.join(updateVariantsAttrSQLChunks, sql` `)} ELSE ${productVariantsToAttributes.attributeId} END)`,
-            })
-            .where(or(...updateVariantAttrSQLConditions));
+          await mutateManyOrThrow(
+            tx
+              .update(productVariantsToAttributes)
+              .set({
+                attributeId: sql`(CASE ${sql.join(updateVariantsAttrSQLChunks, sql` `)} ELSE ${productVariantsToAttributes.attributeId} END)`,
+              })
+              .where(or(...updateVariantAttrSQLConditions))
+              .returning(),
+            "variant attribute link",
+          );
         }
 
         // insert new images
         if (newImagesWithIds?.length) {
-          await tx
-            .insert(images)
-            .values(
-              newImagesWithIds.map((img) => ({ id: img.id, path: img.path })),
-            );
+          await insertManyOrThrow(
+            tx
+              .insert(images)
+              .values(
+                newImagesWithIds.map((img) => ({ id: img.id, path: img.path })),
+              )
+              .returning(),
+            "images",
+          );
         }
 
         // insert new image attribute links
         if (newImagesAttrToInsert?.length) {
-          await tx.insert(imagesToAttributes).values(newImagesAttrToInsert);
+          await insertManyOrThrow(
+            tx
+              .insert(imagesToAttributes)
+              .values(newImagesAttrToInsert)
+              .returning(),
+            "images attributes links",
+          );
         }
 
         // update image attribute links
@@ -541,12 +594,16 @@ export class Products {
           updateImagesAttrSQLChunks.length > 0 &&
           updateImageAttrSQLConditions?.length
         ) {
-          await tx
-            .update(imagesToAttributes)
-            .set({
-              attributeId: sql`(CASE ${sql.join(updateImagesAttrSQLChunks, sql` `)} ELSE ${imagesToAttributes.attributeId} END)`,
-            })
-            .where(or(...updateImageAttrSQLConditions));
+          await mutateManyOrThrow(
+            tx
+              .update(imagesToAttributes)
+              .set({
+                attributeId: sql`(CASE ${sql.join(updateImagesAttrSQLChunks, sql` `)} ELSE ${imagesToAttributes.attributeId} END)`,
+              })
+              .where(or(...updateImageAttrSQLConditions))
+              .returning(),
+            "image attribute link",
+          );
         }
 
         // update image variant links
@@ -569,22 +626,43 @@ export class Products {
         }
 
         if (variantImagesLinksToDeleteConds.length > 0) {
-          await tx
-            .delete(productVariantsToImages)
-            .where(or(...variantImagesLinksToDeleteConds));
+          await mutateManyOrThrow(
+            tx
+              .delete(productVariantsToImages)
+              .where(or(...variantImagesLinksToDeleteConds))
+              .returning(),
+            "variant image link",
+          );
         }
 
         if (newVariantImageLinks.length > 0) {
-          await tx.insert(productVariantsToImages).values(newVariantImageLinks);
+          await insertManyOrThrow(
+            tx
+              .insert(productVariantsToImages)
+              .values(newVariantImageLinks)
+              .returning(),
+            "variant image links",
+          );
         }
 
         if (data.imagesToDelete?.length) {
-          await tx.delete(images).where(inArray(images.id, data.imagesToDelete));
+          await mutateManyOrThrow(
+            tx
+              .delete(images)
+              .where(inArray(images.id, data.imagesToDelete))
+              .returning(),
+            "image",
+          );
         }
+
         if (data.variantsToDelete?.length) {
-          await tx
-            .delete(productVariants)
-            .where(inArray(productVariants.id, data.variantsToDelete));
+          await mutateManyOrThrow(
+            tx
+              .delete(productVariants)
+              .where(inArray(productVariants.id, data.variantsToDelete))
+              .returning(),
+            "variant",
+          );
         }
       });
 
@@ -604,7 +682,7 @@ export class Products {
     }
   }
 
-  async deleteProduct(id: z.infer<typeof deleteProductParamSchema>) {
+  async removeProduct(id: z.infer<typeof deleteProductParamSchema>) {
     try {
       const validatedId = deleteProductParamSchema.parse(id);
 
@@ -620,23 +698,27 @@ export class Products {
         },
       });
 
-      if (!product) {
-        throw new OperationalError({
-          code: ProductErrorCodes.ProductNotFound,
-          message: "Deleting a product failed because it does not exist",
-        });
-      }
+      if (!product) throw new NotFoundError("product", `id: ${validatedId}`);
 
       const imagesToDelete = product.variants.flatMap((el) => el.images);
 
       await this.store.db.transaction(async (tx) => {
-        await tx.delete(products).where(eq(products.id, validatedId));
+        await mutateOneOrThrow(
+          tx.delete(products).where(eq(products.id, validatedId)).returning(),
+          "product",
+        );
 
-        await tx.delete(images).where(
-          inArray(
-            images.id,
-            imagesToDelete.map((el) => el.id),
-          ),
+        await mutateManyOrThrow(
+          tx
+            .delete(images)
+            .where(
+              inArray(
+                images.id,
+                imagesToDelete.map((el) => el.id),
+              ),
+            )
+            .returning(),
+          "image",
         );
       });
 
