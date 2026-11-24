@@ -1,7 +1,6 @@
 import { EventEmitter } from "node:events";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { BunSQLDatabase } from "drizzle-orm/bun-sql/postgres";
-
 import { relations } from "./db/relations";
 import { Products } from "./Products";
 import { Users } from "./Users";
